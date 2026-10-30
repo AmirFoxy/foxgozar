@@ -4,6 +4,7 @@
 package ruleset
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,8 +20,9 @@ import (
 
 const base = "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/"
 
-// Update downloads every rule-set in tags. It keeps a file that fails to
-// download, so an update can only make things newer, never missing.
+// Update downloads every rule-set in tags and returns the ones whose content
+// changed. It keeps a file that fails to download, so an update can only
+// make things newer, never missing.
 func Update(ctx context.Context, f *core.Fetcher, dir string, tags []string) (updated []string, err error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
@@ -34,6 +36,13 @@ func Update(ctx context.Context, f *core.Fetcher, dir string, tags []string) (up
 		}
 		if len(b) < 8 || string(b[:3]) != "SRS" {
 			errs = append(errs, t+": not a rule-set file")
+			continue
+		}
+		path := filepath.Join(dir, t+".srs")
+		if old, e := os.ReadFile(path); e == nil && bytes.Equal(old, b) {
+			// Unchanged: record the check, leave the core alone.
+			now := time.Now()
+			_ = os.Chtimes(path, now, now)
 			continue
 		}
 		if e := state.WriteFileAtomic(filepath.Join(dir, t+".srs"), b, 0o644); e != nil {

@@ -655,6 +655,7 @@ func (a *App) loop(ctx context.Context) {
 	defer tick.Stop()
 	var n int
 	failures := 0
+	var lastRuleTry time.Time
 	for {
 		select {
 		case <-ctx.Done():
@@ -692,8 +693,10 @@ func (a *App) loop(ctx context.Context) {
 				}
 			}
 		}
-		// Rule-sets weekly.
-		if ruleset.Age(a.RuleDir(), gen.RSIranIP) > 7*24*time.Hour && a.Phase0() == Connected {
+		// Rule-sets daily: the upstream lists are rebuilt every day. A failed
+		// attempt waits an hour rather than retrying every minute.
+		if ruleset.Age(a.RuleDir(), gen.RSIranIP) > 24*time.Hour && time.Since(lastRuleTry) > time.Hour {
+			lastRuleTry = time.Now()
 			if err := a.UpdateRuleSets(ctx); err != nil {
 				a.Log.Add("foxgozar", "rule-sets: "+err.Error())
 			}
