@@ -1,0 +1,11 @@
+{
+	"luci-app-zirgozar": {
+		"description": "Zirgozar",
+		"read": {
+			"ubus": { "session": [ "access" ] }
+		},
+		"write": {
+			"ubus": { "session": [ "access" ] }
+		}
+	}
+}
