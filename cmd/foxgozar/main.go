@@ -59,6 +59,10 @@ func main() {
 		}
 		return
 	}
+	if cmd == "cgi" {
+		serveCGI()
+		return
+	}
 	if cmd == "version" {
 		fmt.Println(version)
 		return
@@ -89,7 +93,7 @@ func run() error {
 		Handler:           (&api.Server{App: a}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", st.View().Settings.APIPort))
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", st.View().Settings.APIPort))
 	if err != nil {
 		return err
 	}

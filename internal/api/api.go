@@ -148,6 +148,16 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if sid == "" {
 			sid = r.URL.Query().Get("sid")
 		}
+		// Through uhttpd's CGI only standard headers arrive; LuCI's own
+		// session cookie does.
+		for _, name := range []string{"sysauth_https", "sysauth_http", "sysauth"} {
+			if sid != "" {
+				break
+			}
+			if c, err := r.Cookie(name); err == nil {
+				sid = c.Value
+			}
+		}
 		if (tok != "" && tok == s.App.Store.View().Token) || (sid != "" && s.luciSession(sid)) {
 			next.ServeHTTP(w, r)
 			return

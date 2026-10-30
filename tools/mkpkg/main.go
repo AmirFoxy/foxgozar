@@ -140,6 +140,16 @@ func dataFiles(bin string) []file {
 	for _, v := range views {
 		data = append(data, file{"./www/luci-static/resources/view/foxgozar/" + filepath.Base(v), 0o644, readText(v)})
 	}
+	res, _ := filepath.Glob("files/luci/res/*")
+	for _, r := range res {
+		b := readBin(r)
+		if !strings.HasSuffix(r, ".woff2") {
+			b = readText(r)
+		}
+		data = append(data, file{"./www/luci-static/resources/foxgozar/" + filepath.Base(r), 0o644, b})
+	}
+	// /cgi-bin/foxgozar: the web UI reaches the API through LuCI's own server.
+	data = append(data, file{"./www/cgi-bin/foxgozar", 0o755, readText("files/cgi-api")})
 	return data
 }
 
