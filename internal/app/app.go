@@ -114,6 +114,9 @@ func (a *App) Boot(ctx context.Context) {
 		}()
 	} else {
 		_ = fw.KillSwitch(false, nil)
+		if s.KeepWarm {
+			go a.Warm()
+		}
 	}
 	go a.loop(ctx)
 }
@@ -131,7 +134,7 @@ func (a *App) Start(ctx context.Context) error {
 		a.setPhase(Failed, "no nodes: add a config or a subscription first")
 		return errors.New("no nodes")
 	}
-	if core.Version(a.SingBoxBin()) == "" {
+	if _, err := os.Stat(a.SingBoxBin()); err != nil {
 		a.setPhase(Installing, "downloading sing-box")
 		if err := a.installCore(ctx, core.SingBox); err != nil {
 			a.setPhase(Failed, "could not download sing-box: "+err.Error())
@@ -146,15 +149,7 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}
 	a.setPhase(Starting, "")
-	if err := a.writeConfig(st); err != nil {
-		a.setPhase(Failed, err.Error())
-		return err
-	}
-	if err := a.sb.Validate(); err != nil {
-		a.setPhase(Failed, "config rejected by sing-box: "+err.Error())
-		return err
-	}
-	if err := a.sb.Start(); err != nil {
+	if err := a.warmLocked(st); err != nil {
 		a.setPhase(Failed, err.Error())
 		return err
 	}
@@ -179,16 +174,56 @@ func (a *App) Start(ctx context.Context) error {
 	return nil
 }
 
+// warmLocked makes sure the core runs the current config, without touching
+// the firewall. A core that is already up with this config costs nothing; a
+// changed config is reloaded in place. Each sing-box exec costs about a
+// second on a 700 MHz router, so the config is not checked separately on a
+// cold start: a bad one makes the core exit at once and that is reported.
+func (a *App) warmLocked(st state.State) error {
+	if a.sb.Running() {
+		if a.configHash(st) == a.lastHash {
+			return nil
+		}
+		if err := a.writeConfig(st); err != nil {
+			return err
+		}
+		if err := a.sb.Validate(); err != nil {
+			return fmt.Errorf("config rejected by sing-box: %w", err)
+		}
+		if err := a.sb.Reload(); err != nil {
+			return err
+		}
+		time.Sleep(150 * time.Millisecond)
+		return nil
+	}
+	if err := a.writeConfig(st); err != nil {
+		return err
+	}
+	return a.sb.Start()
+}
+
+// Stop disconnects: the network goes back to normal at once. With KeepWarm
+// the core stays up (idle, no traffic through it) so the next Connect is
+// instant.
 func (a *App) Stop() {
 	a.op.Lock()
 	defer a.op.Unlock()
-	a.stopLocked()
+	a.stopLocked(!a.Store.View().Settings.KeepWarm)
 }
 
-func (a *App) stopLocked() {
+// Shutdown is the service stopping: everything goes, the core included.
+func (a *App) Shutdown() {
+	a.op.Lock()
+	defer a.op.Unlock()
+	a.stopLocked(true)
+}
+
+func (a *App) stopLocked(full bool) {
 	_ = a.Store.Update(func(s *state.State) error { s.Settings.Enabled = false; return nil })
 	fw.Down()
-	a.sb.Stop()
+	if full {
+		a.sb.Stop()
+	}
 	a.persistDelays()
 	_ = fw.KillSwitch(false, nil)
 	a.setPhase(Stopped, "")
@@ -201,13 +236,14 @@ func (a *App) Apply(ctx context.Context) error {
 	a.op.Lock()
 	defer a.op.Unlock()
 	st := a.Store.View()
-	if !st.Settings.Enabled || !a.sb.Running() {
+	if !a.sb.Running() {
 		return nil
 	}
 	if len(st.Nodes) == 0 {
-		a.stopLocked()
+		a.stopLocked(true)
 		return nil
 	}
+	// A warm core follows every change too, so Connect stays instant.
 	h := a.configHash(st)
 	if h != a.lastHash {
 		if err := a.writeConfig(st); err != nil {
@@ -225,6 +261,9 @@ func (a *App) Apply(ctx context.Context) error {
 		time.Sleep(150 * time.Millisecond)
 		core.WaitListening(st.Settings.TProxyPort, 10*time.Second, a.sb.Running)
 		a.Log.Add("zgzd", "configuration reloaded")
+	}
+	if !st.Settings.Enabled {
+		return nil
 	}
 	if err := fw.Up(a.fwConfig(st.Settings)); err != nil {
 		return err
@@ -279,6 +318,9 @@ func (a *App) onCoreExit() {
 	// rules would send everything into a closed port, so take them away -
 	// unless the kill switch wants devices offline rather than exposed.
 	st := a.Store.View()
+	if !st.Settings.Enabled {
+		return // a warm core: the supervisor restarts it, nothing routes through it
+	}
 	fw.Down()
 	a.syncKillSwitch(st.Settings, false)
 	a.setPhase(Starting, "sing-box stopped unexpectedly, restarting")
@@ -551,13 +593,14 @@ type Status struct {
 	Conns       int    `json:"connections"`
 	Memory      int64  `json:"memory"`
 	SingBox     string `json:"sing_box,omitempty"`
+	CoreRunning bool   `json:"core_running"`
 }
 
 func (a *App) Status(ctx context.Context) Status {
 	st := a.Store.View()
 	ph, msg, since := a.Phase()
 	s := Status{Phase: ph, Message: msg, Since: since.Unix(), Enabled: st.Settings.Enabled,
-		Mode: st.Settings.Mode, Selected: st.Settings.Selected, Nodes: len(st.Nodes)}
+		Mode: st.Settings.Mode, Selected: st.Settings.Selected, Nodes: len(st.Nodes), CoreRunning: a.sb.Running()}
 	if ph == Connected && a.sb.Running() {
 		c, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
@@ -674,4 +717,21 @@ func (a *App) ConfigJSON() json.RawMessage {
 		return json.RawMessage(`null`)
 	}
 	return b
+}
+
+// Warm starts the core without routing anything through it, so that the
+// first Connect after a boot is as quick as the rest.
+func (a *App) Warm() {
+	a.op.Lock()
+	defer a.op.Unlock()
+	st := a.Store.View()
+	if len(st.Nodes) == 0 || st.Settings.Enabled {
+		return
+	}
+	if _, err := os.Stat(a.SingBoxBin()); err != nil {
+		return
+	}
+	if err := a.warmLocked(st); err != nil {
+		a.Log.Add("zgzd", "warm start: "+err.Error())
+	}
 }

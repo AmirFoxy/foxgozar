@@ -100,7 +100,7 @@ func run() error {
 
 	// procd stop: leave the network as it was without us.
 	enabled := st.View().Settings.Enabled
-	a.Stop()
+	a.Shutdown()
 	if enabled {
 		// Stop() records "off"; a service stop is not the user switching
 		// off, so the next boot must still connect.

@@ -100,6 +100,9 @@ type Settings struct {
 
 	KillSwitch bool `json:"kill_switch"`
 
+	// Keep the core running while disconnected, so Connect is one nft call.
+	KeepWarm bool `json:"keep_warm"`
+
 	Mux          bool   `json:"mux"`
 	TLSFragment  bool   `json:"tls_fragment"`
 	LogLevel     string `json:"log_level"`
@@ -134,6 +137,7 @@ func Defaults() Settings {
 		RemoteDNS:     "https://1.1.1.1/dns-query",
 		DirectDNS:     "udp://8.8.8.8",
 		ACLMode:       "all",
+		KeepWarm:      true,
 		LogLevel:      "warn",
 		CoreChannel:   "stable",
 		Language:      "fa",
