@@ -18,6 +18,9 @@ var T = {
 	en: {
 		connected: 'Connected', disconnected: 'Not connected', starting: 'Connecting…',
 		installing: 'Getting ready…', failed: 'Could not connect',
+		viaWarp: 'Through WARP: every server failed, so the free backup is carrying traffic until one answers again',
+		sWarp: 'WARP backup', warpBackup: 'Use WARP when every server fails', warpBackupHint: 'Free Cloudflare WARP takes over by itself and hands back as soon as a server answers. Plain WARP is filtered in Iran; FoxGozar sends it through Xray with noise and keeps several endpoints ready.',
+		warpReady: '{0} of {1} WARP endpoints answer', warpNone: 'No WARP endpoint answers yet; new ones are tried by themselves', warpActive: 'WARP is carrying traffic now', warpWait: 'Registering and connecting to WARP… this takes a few seconds',
 		via: 'Through {0}', idle: 'Your network uses its normal connection.',
 		connect: 'Connect', disconnect: 'Disconnect',
 		yourNet: 'Your network', exit: 'Exit',
@@ -64,6 +67,9 @@ var T = {
 	fa: {
 		connected: 'وصل است', disconnected: 'وصل نیست', starting: 'در حال اتصال…',
 		installing: 'در حال آماده‌سازی…', failed: 'اتصال برقرار نشد',
+		viaWarp: 'از طریق WARP: همه سرورها قطع‌اند و پشتیبان رایگان ترافیک را می‌برد تا یکی دوباره جواب بدهد',
+		sWarp: 'پشتیبان WARP', warpBackup: 'وقتی همه سرورها قطع شدند از WARP استفاده کن', warpBackupHint: 'WARP رایگان کلادفلر خودش جایگزین می‌شود و به محض جواب دادن یک سرور کنار می‌رود. WARP ساده در ایران فیلتر است؛ فاکس‌گذر آن را با نویز از طریق Xray می‌فرستد و چند آدرس را آماده نگه می‌دارد.',
+		warpReady: '{0} از {1} آدرس WARP جواب می‌دهند', warpNone: 'هنوز هیچ آدرس WARP جواب نمی‌دهد؛ آدرس‌های تازه خودکار امتحان می‌شوند', warpActive: 'الان WARP ترافیک را می‌برد', warpWait: 'در حال ثبت‌نام و اتصال به WARP… چند ثانیه طول می‌کشد',
 		via: 'از طریق {0}', idle: 'شبکه شما از اینترنت عادی استفاده می‌کند.',
 		connect: 'اتصال', disconnect: 'قطع اتصال',
 		yourNet: 'شبکه شما', exit: 'خروجی',
@@ -266,7 +272,8 @@ function renderHero() {
 	root.setAttribute('data-phase', phase);
 	var on = phase === 'connected' || phase === 'starting' || phase === 'installing';
 	var title = { connected: t('connected'), starting: t('starting'), installing: t('installing'), failed: t('failed') }[phase] || t('disconnected');
-	var sub = phase === 'connected' && st.current_name ? t('via', st.current_name)
+	var sub = phase === 'connected' && st.backup ? t('viaWarp')
+		: phase === 'connected' && st.current_name ? t('via', st.current_name)
 		: (phase === 'installing' && st.message) ? st.message
 		: phase === 'failed' ? '' : t('idle');
 
@@ -300,7 +307,7 @@ function renderHero() {
 				phase === 'connected' ? h('div', { 'class': 'fgz-speed num', id: 'fgz-speed', dir: 'ltr' }, speedKids()) : null,
 				h('div', { 'class': 'fgz-track' }, [h('i'), h('i')])
 			]),
-			h('div', { 'class': 'fgz-end' }, [h('b', {}, phase === 'connected' ? (countryOf(st.current_name) || t('exit')) : t('exit'))])
+			h('div', { 'class': 'fgz-end' }, [h('b', {}, phase === 'connected' ? (st.backup ? 'WARP' : countryOf(st.current_name) || t('exit')) : t('exit'))])
 		]),
 		facts.length ? h('div', { 'class': 'fgz-facts' }, facts) : null,
 		phase === 'failed' && st.message ? h('div', { 'class': 'fgz-alert', role: 'alert' }, st.message) : null,
@@ -339,7 +346,7 @@ function loadTab() {
 	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
-	case 'settings': p = api('GET', '/api/core').then(function(r) { S.cores = r; }); break;
+	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
 	case 'devices': p = Promise.all([api('GET', '/api/devices'), api('GET', '/api/nodes')]).then(function(r) { S.devices = r[0]; S.nodes = r[1]; }); break;
 	case 'logs': S.logSeq = 0; S.logLines = []; p = pollLogs(); break;
 	}
@@ -712,6 +719,10 @@ function panelSettings() {
 			switchField('ipv6', t('ipv6')),
 			inputField('lan_interfaces', t('lan'), t('lanHint'), 'text', list, joined)
 		]),
+		section(t('sWarp'), [
+			switchField('warp_backup', t('warpBackup'), t('warpBackupHint')),
+			h('div', { 'class': 'fgz-field', id: 'fgz-warp' }, warpLine())
+		]),
 		section(t('sAdvanced'), [
 			switchField('mux', t('mux'), t('muxHint')),
 			switchField('tls_fragment', t('fragment'), t('fragmentHint')),
@@ -735,6 +746,17 @@ function panelSettings() {
 			])
 		])
 	]);
+}
+
+function warpLine() {
+	var w = S.warp;
+	if (!S.settings || !S.settings.warp_backup) return [];
+	if (!w || !w.registered) return [h('small', {}, t('warpWait'))];
+	var total = Object.keys(w.endpoints || {}).length;
+	return [h('small', { 'class': 'num' }, [
+		w.active ? h('b', { style: 'color:var(--fox)' }, t('warpActive') + '. ') : null,
+		total ? (w.working ? t('warpReady', w.working, total) : t('warpNone')) : t('warpWait')
+	])];
 }
 
 /* ---------- log */
@@ -801,6 +823,8 @@ function tick() {
 	if (document.visibilityState !== 'visible') return;
 	refreshStatus();
 	if (S.tab === 'logs') pollLogs();
+	if (S.tab === 'settings' && S.settings && S.settings.warp_backup)
+		api('GET', '/api/warp').then(function(r) { S.warp = r; var el = document.getElementById('fgz-warp'); if (el) el.replaceChildren.apply(el, warpLine()); }).catch(function() {});
 	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))
 		api('GET', '/api/devices').then(function(r) { S.devices = r; renderPanel(); }).catch(function() {});
 }

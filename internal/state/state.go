@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"foxgozar/internal/warp"
 	"os"
 	"path/filepath"
 	"sync"
@@ -109,6 +110,9 @@ type Settings struct {
 
 	KillSwitch bool `json:"kill_switch"`
 
+	// When every server fails, carry traffic over Cloudflare WARP instead.
+	WarpBackup bool `json:"warp_backup"`
+
 	// Keep the core running while disconnected, so Connect is one nft call.
 	KeepWarm bool `json:"keep_warm"`
 
@@ -128,6 +132,7 @@ type State struct {
 	Subs     []Subscription `json:"subscriptions"`
 	Rules    []ShuntRule    `json:"rules"`
 	Devices  []Device       `json:"devices"`
+	Warp     *Warp          `json:"warp,omitempty"`
 }
 
 func Defaults() Settings {
@@ -301,4 +306,10 @@ func (s *State) DeviceByMAC(mac string) *Device {
 		}
 	}
 	return nil
+}
+
+// Warp is the WARP account FoxGozar registered, and the endpoints it tries.
+type Warp struct {
+	Account   warp.Account `json:"account"`
+	Endpoints []string     `json:"endpoints"`
 }

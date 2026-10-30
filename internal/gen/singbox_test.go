@@ -8,6 +8,7 @@ import (
 
 	"foxgozar/internal/link"
 	"foxgozar/internal/state"
+	"foxgozar/internal/warp"
 )
 
 var sampleLinks = []string{
@@ -114,5 +115,32 @@ func TestBuildXray(t *testing.T) {
 	}
 	if !strings.Contains(string(sb), `"server_port": 21001`) {
 		t.Error("second Xray node should be a SOCKS outbound on 21001")
+	}
+}
+
+func TestWarpConfigs(t *testing.T) {
+	st := state.State{Settings: state.Defaults(), Token: "s"}
+	n, _ := link.Parse("vless://id@1.2.3.4:443?type=tcp#a")
+	st.Nodes = []state.Node{n}
+	st.Settings.WarpBackup = true
+	st.Warp = &state.Warp{
+		Account:   warp.Account{PrivateKey: "YNXtAzepDqRv9H52osJVDQnznT5AL11eEWeP1fXvTHg=", PeerKey: "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=", Address4: "172.16.0.2", Reserved: []int{1, 2, 3}},
+		Endpoints: []string{"162.159.192.146:4233", "188.114.97.38:3854"},
+	}
+	x, err := BuildXray(st, 21000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out := os.Getenv("FGZ_XRAY_DUMP"); out != "" {
+		_ = os.WriteFile(out, x, 0o644)
+	}
+	b, err := Build(st, Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090, XrayBase: 21000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"tag": "warp"`, `"server_port": 22001`, `"warp"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("sing-box config lacks %s", want)
+		}
 	}
 }

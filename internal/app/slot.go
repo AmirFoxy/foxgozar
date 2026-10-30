@@ -120,7 +120,7 @@ func (a *App) writeSlot(st state.State, sl *slot) error {
 // it when there are none. Xray has no in-place reload: it restarts only when
 // its own nodes change.
 func (a *App) syncXray(st state.State, sl *slot) error {
-	if !gen.HasXray(st.Nodes) {
+	if !gen.NeedXray(st) {
 		sl.xr.Stop()
 		sl.xrayHash = [32]byte{}
 		return nil

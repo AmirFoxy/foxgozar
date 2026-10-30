@@ -52,6 +52,7 @@ type App struct {
 	busy             map[string]bool
 	baseUp, baseDown int64 // traffic of instances already stopped
 	dev              *devStats
+	onWarp           bool // traffic is on the WARP backup
 }
 
 func New(p Paths, st *state.Store) *App {
@@ -122,6 +123,7 @@ func (a *App) Boot(ctx context.Context) {
 		}
 	}
 	go a.loop(ctx)
+	go a.warpWatch(ctx)
 }
 
 // Start brings the tunnel up. It is quick when the core and rule-sets are
@@ -144,7 +146,7 @@ func (a *App) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	if _, err := os.Stat(a.XrayBin()); err != nil && gen.HasXray(st.Nodes) {
+	if _, err := os.Stat(a.XrayBin()); err != nil && gen.NeedXray(st) {
 		a.setPhase(Installing, "downloading Xray")
 		if err := a.installCore(ctx, core.Xray); err != nil {
 			// Not fatal: the sing-box nodes still work.
@@ -637,6 +639,7 @@ type Status struct {
 	SingBox     string `json:"sing_box,omitempty"`
 	CoreRunning bool   `json:"core_running"`
 	Draining    bool   `json:"draining,omitempty"` // a previous instance still finishes connections
+	Backup      bool   `json:"backup,omitempty"`   // on WARP because every server failed
 }
 
 // Totals is the traffic since the service started, across every instance.
@@ -675,6 +678,10 @@ func (a *App) Status(ctx context.Context) Status {
 			now := px[gen.TagProxy].Now
 			if now == gen.TagAuto {
 				now = px[gen.TagAuto].Now
+			}
+			if now == gen.TagWarp {
+				now = px[gen.TagWarp].Now
+				s.CurrentName, s.Backup = "WARP", true
 			}
 			s.Current = now
 			s.Delay = px[now].LastDelay()

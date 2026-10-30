@@ -63,6 +63,20 @@ func main() {
 		serveCGI()
 		return
 	}
+	if cmd == "warp-xray-test" {
+		if err := warpXrayTest(6); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if cmd == "warp-test" {
+		if err := warpTest(12); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if cmd == "version" {
 		fmt.Println(version)
 		return

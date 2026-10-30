@@ -144,6 +144,23 @@ func Build(st state.State, env Env) ([]byte, error) {
 		"interrupt_exist_connections": false,
 	}
 	outbounds = append(outbounds, auto, sel, map[string]any{"type": "direct", "tag": TagDirect})
+	if WarpOn(st) {
+		// The backup: chosen through the API only when every server fails.
+		base := env.XrayBase
+		if base == 0 {
+			base = XrayBasePort
+		}
+		var wtags []any
+		for i := range st.Warp.Endpoints {
+			outbounds = append(outbounds, xraySocks(WarpTag(i), WarpPort(base, i)))
+			wtags = append(wtags, WarpTag(i))
+		}
+		outbounds = append(outbounds, map[string]any{
+			"type": "urltest", "tag": TagWarp, "outbounds": wtags, "url": s.TestURL,
+			"interval": "5m", "tolerance": 300, "idle_timeout": "30m",
+		})
+		sel["outbounds"] = append(sel["outbounds"].([]any), TagWarp)
+	}
 
 	ruleSets := []any{}
 	useRS := func(tag string) bool {

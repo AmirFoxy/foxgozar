@@ -67,6 +67,7 @@ func (s *Server) Handler() http.Handler {
 	h("DELETE /api/subs/{id}", s.deleteSub)
 	h("POST /api/subs/{id}/update", s.updateSub)
 
+	h("GET /api/warp", s.warpStatus)
 	h("GET /api/devices", s.devices)
 	h("PUT /api/devices/{mac}", s.setDevice)
 	h("DELETE /api/devices/{mac}", s.forgetDevice)
@@ -258,6 +259,11 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) (any, error
 		return nil, err
 	}
 	if err := s.App.Store.Update(func(st *state.State) error { st.Settings = next; return nil }); err != nil {
+		return nil, err
+	}
+	if err := s.App.EnsureWarp(context.Background()); err != nil {
+		// Not left on half-working: the switch goes back off and says why.
+		_ = s.App.Store.Update(func(st *state.State) error { st.Settings.WarpBackup = false; return nil })
 		return nil, err
 	}
 	if err := s.App.EnsureRuleSets(context.Background()); err != nil {
@@ -731,4 +737,8 @@ func (s *Server) setDevice(w http.ResponseWriter, r *http.Request) (any, error) 
 
 func (s *Server) forgetDevice(w http.ResponseWriter, r *http.Request) (any, error) {
 	return nil, s.App.ForgetDevice(context.Background(), strings.ToLower(r.PathValue("mac")))
+}
+
+func (s *Server) warpStatus(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.WarpStatus(r.Context()), nil
 }

@@ -44,7 +44,7 @@ func HasXray(nodes []state.Node) bool {
 // on the tunnel it is part of.
 func BuildXray(st state.State, base int) ([]byte, error) {
 	ports := XrayPorts(st.Nodes, base)
-	if len(ports) == 0 {
+	if len(ports) == 0 && !WarpOn(st) {
 		return nil, fmt.Errorf("no Xray nodes")
 	}
 	var inbounds, outbounds, rules []any
@@ -77,6 +77,19 @@ func BuildXray(st state.State, base int) ([]byte, error) {
 		ss["sockopt"] = sock
 		outbounds = append(outbounds, ob)
 		rules = append(rules, map[string]any{"inboundTag": []any{in}, "outboundTag": n.ID})
+	}
+	if WarpOn(st) {
+		for i, ep := range st.Warp.Endpoints {
+			in, out := fmt.Sprintf("in-warp-%d", i+1), WarpTag(i)
+			inbounds = append(inbounds, map[string]any{
+				"tag": in, "listen": "127.0.0.1", "port": WarpPort(base, i), "protocol": "socks",
+				"settings": map[string]any{"udp": true, "auth": "noauth"},
+			})
+			ob, extra := warpOutbound(st.Warp, out, ep, i)
+			outbounds = append(outbounds, ob)
+			outbounds = append(outbounds, extra...)
+			rules = append(rules, map[string]any{"inboundTag": []any{in}, "outboundTag": out})
+		}
 	}
 	outbounds = append(outbounds, map[string]any{
 		"tag": "direct", "protocol": "freedom",
@@ -129,4 +142,52 @@ func deepCopy(m map[string]any) map[string]any {
 	var out map[string]any
 	_ = json.Unmarshal(b, &out)
 	return out
+}
+
+// WARP, carried by Xray: plain WireGuard to Cloudflare is filtered in Iran,
+// but a few random UDP packets sent ahead of the handshake get a share of
+// endpoints through. Measured on an Iranian ISP: 0 of 12 endpoints without
+// noise, about one in four with it, so several run side by side and
+// sing-box's urltest picks one that answers.
+const TagWarp = "warp"
+
+func WarpOn(st state.State) bool {
+	return st.Settings.WarpBackup && st.Warp != nil && len(st.Warp.Endpoints) > 0
+}
+
+func WarpTag(i int) string         { return fmt.Sprintf("warp-%d", i+1) }
+func WarpPort(base, i int) int     { return base + 1000 + i }
+func NeedXray(st state.State) bool { return HasXray(st.Nodes) || WarpOn(st) }
+
+func warpOutbound(w *state.Warp, tag, endpoint string, i int) (map[string]any, []any) {
+	a := w.Account
+	addrs := []any{a.Address4 + "/32"}
+	wg := map[string]any{"tag": tag, "protocol": "wireguard", "settings": map[string]any{
+		"secretKey": a.PrivateKey, "address": addrs, "mtu": 1280, "noKernelTun": true,
+		"peers": []any{map[string]any{"publicKey": a.PeerKey, "endpoint": endpoint,
+			"allowedIPs": []any{"0.0.0.0/0", "::/0"}, "keepAlive": 25}}}}
+	if len(a.Reserved) == 3 {
+		wg["settings"].(map[string]any)["reserved"] = []any{a.Reserved[0], a.Reserved[1], a.Reserved[2]}
+	}
+	mark := map[string]any{"mark": RoutingMark}
+	// Two ways of adding the noise both got through in tests; alternate so a
+	// change in how either is filtered leaves the other half working.
+	if i%2 == 0 {
+		noise := []any{
+			map[string]any{"rand": "10-20", "delay": "10-16"},
+			map[string]any{"rand": "10-20", "delay": "10-16"},
+			map[string]any{"rand": "10-20", "delay": "10-16"},
+		}
+		wg["streamSettings"] = map[string]any{"sockopt": mark, "finalmask": map[string]any{
+			"udp": []any{map[string]any{"type": "noise", "settings": map[string]any{"noise": noise}}}}}
+		return wg, nil
+	}
+	via := tag + "-noise"
+	wg["streamSettings"] = map[string]any{"sockopt": map[string]any{"dialerProxy": via}}
+	return wg, []any{map[string]any{"tag": via, "protocol": "freedom",
+		"settings": map[string]any{"noises": []any{
+			map[string]any{"type": "rand", "packet": "10-20", "delay": "10-16"},
+			map[string]any{"type": "rand", "packet": "10-20", "delay": "10-16"},
+		}},
+		"streamSettings": map[string]any{"sockopt": mark}}}
 }
