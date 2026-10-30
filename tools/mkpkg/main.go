@@ -117,22 +117,28 @@ type file struct {
 	data []byte
 }
 
-func read(p string) []byte {
+// readText is for scripts and JSON: a Windows checkout may have CRLF
+// endings, which break the shebang line on the router.
+func readText(p string) []byte {
+	return bytes.ReplaceAll(readBin(p), []byte("\r\n"), []byte("\n"))
+}
+
+func readBin(p string) []byte {
 	b, err := os.ReadFile(p)
 	must(err)
-	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
+	return b
 }
 
 func dataFiles(bin string) []file {
 	data := []file{
-		{"./usr/bin/zgzd", 0o755, read(bin)},
-		{"./etc/init.d/zirgozar", 0o755, read("files/zirgozar.init")},
-		{"./usr/share/rpcd/acl.d/luci-app-zirgozar.json", 0o644, read("files/luci/acl.json")},
-		{"./usr/share/luci/menu.d/luci-app-zirgozar.json", 0o644, read("files/luci/menu.json")},
+		{"./usr/bin/zgzd", 0o755, readBin(bin)},
+		{"./etc/init.d/zirgozar", 0o755, readText("files/zirgozar.init")},
+		{"./usr/share/rpcd/acl.d/luci-app-zirgozar.json", 0o644, readText("files/luci/acl.json")},
+		{"./usr/share/luci/menu.d/luci-app-zirgozar.json", 0o644, readText("files/luci/menu.json")},
 	}
 	views, _ := filepath.Glob("files/luci/view/*.js")
 	for _, v := range views {
-		data = append(data, file{"./www/luci-static/resources/view/zirgozar/" + filepath.Base(v), 0o644, read(v)})
+		data = append(data, file{"./www/luci-static/resources/view/zirgozar/" + filepath.Base(v), 0o644, readText(v)})
 	}
 	return data
 }
