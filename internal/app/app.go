@@ -51,11 +51,12 @@ type App struct {
 	delays           map[string]int // live measurements, persisted now and then
 	busy             map[string]bool
 	baseUp, baseDown int64 // traffic of instances already stopped
+	dev              *devStats
 }
 
 func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
-		delays: map[string]int{}, busy: map[string]bool{}}
+		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats()}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
@@ -173,7 +174,7 @@ func (a *App) Start(ctx context.Context) error {
 		a.setPhase(Failed, msg)
 		return errors.New(msg)
 	}
-	if err := fw.Up(a.fwConfig(st.Settings, sl)); err != nil {
+	if err := fw.Up(a.fwConfig(st, sl)); err != nil {
 		a.stopSlot(sl)
 		fw.Down()
 		a.setPhase(Failed, "firewall: "+err.Error())
@@ -223,7 +224,7 @@ func (a *App) warmLocked(st state.State, live bool) error {
 	// From here new connections go to next; open ones stay where they are,
 	// because TPROXY hands packets of an established connection to the
 	// socket that owns it, whatever port the rule names.
-	if err := fw.Up(a.fwConfig(st.Settings, next)); err != nil {
+	if err := fw.Up(a.fwConfig(st, next)); err != nil {
 		a.stopSlot(next)
 		return err
 	}
@@ -297,7 +298,7 @@ func (a *App) Apply(ctx context.Context) error {
 	if !st.Settings.Enabled {
 		return nil
 	}
-	if err := fw.Up(a.fwConfig(st.Settings, a.act())); err != nil {
+	if err := fw.Up(a.fwConfig(st, a.act())); err != nil {
 		return err
 	}
 	a.applySelection(ctx, st.Settings)
@@ -379,7 +380,7 @@ func (a *App) onCoreExit(sl *slot) {
 			if a.act() != sl {
 				return
 			}
-			if err := fw.Up(a.fwConfig(st.Settings, sl)); err == nil {
+			if err := fw.Up(a.fwConfig(st, sl)); err == nil {
 				a.applySelection(context.Background(), st.Settings)
 				a.syncKillSwitch(st.Settings, true)
 				a.setPhase(Connected, "recovered")
@@ -395,14 +396,22 @@ func (a *App) syncKillSwitch(s state.Settings, tunnelUp bool) {
 	}
 }
 
-func (a *App) fwConfig(s state.Settings, sl *slot) fw.Config {
+func (a *App) fwConfig(st state.State, sl *slot) fw.Config {
+	s := st.Settings
 	c := fw.Config{
 		TProxyPort: sl.tproxy(s), DNSPort: sl.dns(s), LANInterfaces: s.LANInterfaces,
 		ProxyRouter: s.ProxyRouter, IPv6: s.IPv6, CoreMark: gen.RoutingMark,
-		ACLMode: s.ACLMode, FakeIP: s.FakeIP,
+		FakeIP: s.FakeIP, DefaultDirect: s.DefaultPolicy == "direct",
 	}
-	for _, d := range s.Devices {
-		c.MACs = append(c.MACs, d.MAC)
+	for _, d := range st.Devices {
+		switch d.Policy {
+		case "block":
+			c.BlockMACs = append(c.BlockMACs, d.MAC)
+		case "direct":
+			c.DirectMACs = append(c.DirectMACs, d.MAC)
+		case "proxy", "node":
+			c.TunnelMACs = append(c.TunnelMACs, d.MAC)
+		}
 	}
 	if s.IranDirect {
 		v4, v6, err := ruleset.CIDRs(a.SingBoxBin(), a.RuleDir(), gen.RSIranIP)

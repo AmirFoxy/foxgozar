@@ -28,9 +28,12 @@ type Config struct {
 	DirectV6      []string
 	ServerV4      []string // proxy server addresses, always direct
 	ServerV6      []string
-	ACLMode       string // all | only | except
-	MACs          []string
-	FakeIP        bool
+	// Per-device policy by MAC. With DefaultDirect, only TunnelMACs enter the
+	// core; otherwise everyone but DirectMACs does. BlockMACs reach nothing
+	// beyond the router.
+	TunnelMACs, DirectMACs, BlockMACs []string
+	DefaultDirect                     bool
+	FakeIP                            bool
 }
 
 var reservedV4 = []string{
@@ -75,8 +78,23 @@ func Script(c Config) string {
 		b.WriteString(set("bypass6", "ipv6_addr", reservedV6))
 		b.WriteString(set("direct6", "ipv6_addr", cleanCIDRs(append(append([]string{}, c.DirectV6...), c.ServerV6...), true)))
 	}
-	if len(c.MACs) > 0 {
-		fmt.Fprintf(&b, "\tset acl_mac {\n\t\ttype ether_addr\n\t\telements = { %s }\n\t}\n", strings.Join(c.MACs, ", "))
+	for _, s := range []struct {
+		name string
+		macs []string
+	}{{"tunnel_mac", c.TunnelMACs}, {"direct_mac", c.DirectMACs}, {"block_mac", c.BlockMACs}} {
+		fmt.Fprintf(&b, "\tset %s {\n\t\ttype ether_addr\n", s.name)
+		if len(s.macs) > 0 {
+			fmt.Fprintf(&b, "\t\telements = { %s }\n", strings.Join(s.macs, ", "))
+		}
+		b.WriteString("\t}\n")
+	}
+	// Devices whose traffic the core never sees.
+	bypassDevices := func(b *strings.Builder) {
+		if c.DefaultDirect {
+			b.WriteString("\t\tether saddr != @tunnel_mac return\n")
+		} else {
+			b.WriteString("\t\tether saddr @direct_mac return\n")
+		}
 	}
 	lan := quoteList(c.LANInterfaces)
 
@@ -102,12 +120,10 @@ func Script(c Config) string {
 		fmt.Fprintf(&b, "\t\tiifname \"lo\" meta mark & 0xff == 0x%x meta l4proto { tcp, udp } tproxy ip6 to [::1]:%d accept\n", FwMark, c.TProxyPort)
 	}
 	fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
-	switch {
-	case c.ACLMode == "only" && len(c.MACs) > 0:
-		b.WriteString("\t\tether saddr != @acl_mac return\n")
-	case c.ACLMode == "except" && len(c.MACs) > 0:
-		b.WriteString("\t\tether saddr @acl_mac return\n")
-	}
+	// Blocked devices first: before the IPv6 and local-address returns, so no
+	// way out is left. The router itself (DHCP, DNS, this UI) stays reachable.
+	b.WriteString("\t\tether saddr @block_mac fib daddr type != { local, broadcast, multicast } drop\n")
+	bypassDevices(&b)
 	filter(&b)
 	fmt.Fprintf(&b, "\t\tmeta l4proto { tcp, udp } meta mark set meta mark & 0xffffff00 | 0x%x tproxy ip to 127.0.0.1:%d accept\n", FwMark, c.TProxyPort)
 	if c.IPv6 {
@@ -129,12 +145,8 @@ func Script(c Config) string {
 	// can never leave the router without DNS.
 	b.WriteString("\tchain dstnat {\n\t\ttype nat hook prerouting priority dstnat - 5; policy accept;\n")
 	fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
-	switch {
-	case c.ACLMode == "only" && len(c.MACs) > 0:
-		b.WriteString("\t\tether saddr != @acl_mac return\n")
-	case c.ACLMode == "except" && len(c.MACs) > 0:
-		b.WriteString("\t\tether saddr @acl_mac return\n")
-	}
+	// A direct device keeps the router's normal DNS as well.
+	bypassDevices(&b)
 	fmt.Fprintf(&b, "\t\tmeta l4proto { tcp, udp } th dport 53 fib daddr type local redirect to :%d\n", c.DNSPort)
 	b.WriteString("\t}\n")
 

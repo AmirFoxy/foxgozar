@@ -74,7 +74,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | remove ID | nodes | logs | config | update sing-box|xray|rules | version")
+	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | remove ID | devices | device MAC POLICY | nodes | logs | config | update sing-box|xray|rules | version")
 	os.Exit(2)
 }
 
@@ -238,6 +238,21 @@ func client(cmd string, args []string) error {
 			usage()
 		}
 		return call("DELETE", "/api/nodes/"+args[0], nil, nil)
+	case "devices":
+		return call("GET", "/api/devices", nil, nil)
+	case "device":
+		// foxgozar device MAC proxy|direct|block|forget|NODE-ID
+		if len(args) < 2 {
+			usage()
+		}
+		if args[1] == "forget" {
+			return call("DELETE", "/api/devices/"+args[0], nil, nil)
+		}
+		body := map[string]string{"policy": args[1]}
+		if args[1] != "proxy" && args[1] != "direct" && args[1] != "block" {
+			body = map[string]string{"policy": "node", "node": args[1]}
+		}
+		return call("PUT", "/api/devices/"+args[0], body, nil)
 	case "select":
 		if len(args) < 1 {
 			usage()

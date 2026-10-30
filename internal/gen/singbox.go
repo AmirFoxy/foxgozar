@@ -303,6 +303,22 @@ func Build(st state.State, env Env) ([]byte, error) {
 			rules = append(rules, map[string]any{"rule_set": rs, "outbound": TagDirect})
 		}
 	}
+	// Devices tied to one server: after the Iran and user rules, so those
+	// still apply to them, and instead of the shared choice for the rest.
+	byNode := map[string][]any{}
+	var nodeOrder []string
+	for _, d := range st.Devices {
+		if d.Policy != "node" || st.NodeByID(d.Node) == nil {
+			continue
+		}
+		if _, ok := byNode[d.Node]; !ok {
+			nodeOrder = append(nodeOrder, d.Node)
+		}
+		byNode[d.Node] = append(byNode[d.Node], d.MAC)
+	}
+	for _, id := range nodeOrder {
+		rules = append(rules, map[string]any{"source_mac_address": byNode[id], "outbound": id})
+	}
 
 	route := map[string]any{
 		"rules": rules, "rule_set": ruleSets, "final": TagProxy,

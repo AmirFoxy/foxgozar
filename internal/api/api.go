@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,6 +66,10 @@ func (s *Server) Handler() http.Handler {
 	h("PUT /api/subs/{id}", s.editSub)
 	h("DELETE /api/subs/{id}", s.deleteSub)
 	h("POST /api/subs/{id}/update", s.updateSub)
+
+	h("GET /api/devices", s.devices)
+	h("PUT /api/devices/{mac}", s.setDevice)
+	h("DELETE /api/devices/{mac}", s.forgetDevice)
 
 	h("GET /api/rules", s.rules)
 	h("PUT /api/rules", s.putRules)
@@ -293,10 +298,10 @@ func validateSettings(s state.Settings) error {
 	if len(s.LANInterfaces) == 0 {
 		return errors.New("at least one LAN interface is needed")
 	}
-	switch s.ACLMode {
-	case "all", "only", "except":
+	switch s.DefaultPolicy {
+	case "proxy", "direct":
 	default:
-		return errors.New("acl_mode must be all, only or except")
+		return errors.New("default_policy must be proxy or direct")
 	}
 	return nil
 }
@@ -676,4 +681,54 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) (any, error) {
 func subByID(s *Server, id string) *state.Subscription {
 	v := s.App.Store.View()
 	return v.SubByID(id)
+}
+
+func (s *Server) devices(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.Devices(), nil
+}
+
+var macRe = regexp.MustCompile(`^[0-9a-f]{2}(:[0-9a-f]{2}){5}$`)
+
+func (s *Server) setDevice(w http.ResponseWriter, r *http.Request) (any, error) {
+	mac := strings.ToLower(r.PathValue("mac"))
+	if !macRe.MatchString(mac) {
+		return nil, httpErr{400, "not a MAC address"}
+	}
+	var req struct {
+		Name   *string `json:"name"`
+		Policy *string `json:"policy"`
+		Node   *string `json:"node"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	st := s.App.Store.View()
+	d := state.Device{MAC: mac, Policy: st.Settings.DefaultPolicy}
+	if cur := st.DeviceByMAC(mac); cur != nil {
+		d = *cur
+	}
+	if req.Name != nil {
+		d.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.Policy != nil {
+		d.Policy = *req.Policy
+	}
+	if req.Node != nil {
+		d.Node = *req.Node
+	}
+	switch d.Policy {
+	case "proxy", "direct", "block":
+		d.Node = ""
+	case "node":
+		if st.NodeByID(d.Node) == nil {
+			return nil, errors.New("choose a server that exists")
+		}
+	default:
+		return nil, errors.New("policy must be proxy, direct, node or block")
+	}
+	return nil, s.App.SetDevice(context.Background(), d)
+}
+
+func (s *Server) forgetDevice(w http.ResponseWriter, r *http.Request) (any, error) {
+	return nil, s.App.ForgetDevice(context.Background(), strings.ToLower(r.PathValue("mac")))
 }

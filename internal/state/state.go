@@ -61,9 +61,14 @@ type ShuntRule struct {
 	Target  string   `json:"target"` // "direct", "block", "proxy" or a node ID
 }
 
+// Device is a LAN device with its own policy, found by MAC address.
 type Device struct {
-	MAC  string `json:"mac"`
-	Name string `json:"name,omitempty"`
+	MAC  string `json:"mac"`            // lower case, colon separated
+	Name string `json:"name,omitempty"` // set by the user; the DHCP hostname otherwise
+	// "proxy" (through the tunnel), "direct" (never enters the core),
+	// "node" (through Node only) or "block" (no internet).
+	Policy string `json:"policy"`
+	Node   string `json:"node,omitempty"`
 }
 
 type Settings struct {
@@ -99,9 +104,8 @@ type Settings struct {
 	DirectDNS string `json:"direct_dns"`
 	FakeIP    bool   `json:"fake_ip"`
 
-	// Access control: "all", "only" (listed devices only) or "except".
-	ACLMode string   `json:"acl_mode"`
-	Devices []Device `json:"devices,omitempty"`
+	// Policy for devices without one of their own: "proxy" or "direct".
+	DefaultPolicy string `json:"default_policy"`
 
 	KillSwitch bool `json:"kill_switch"`
 
@@ -123,6 +127,7 @@ type State struct {
 	Nodes    []Node         `json:"nodes"`
 	Subs     []Subscription `json:"subscriptions"`
 	Rules    []ShuntRule    `json:"rules"`
+	Devices  []Device       `json:"devices"`
 }
 
 func Defaults() Settings {
@@ -141,7 +146,7 @@ func Defaults() Settings {
 		IranDirect:    true,
 		RemoteDNS:     "https://1.1.1.1/dns-query",
 		DirectDNS:     "udp://8.8.8.8",
-		ACLMode:       "all",
+		DefaultPolicy: "proxy",
 		KeepWarm:      true,
 		LogLevel:      "warn",
 		CoreChannel:   "stable",
@@ -185,6 +190,9 @@ func Open(path string) (*Store, error) {
 	}
 	if st.s.Rules == nil {
 		st.s.Rules = []ShuntRule{}
+	}
+	if st.s.Devices == nil {
+		st.s.Devices = []Device{}
 	}
 	return st, st.save()
 }
@@ -281,6 +289,15 @@ func (s *State) SubByID(id string) *Subscription {
 	for i := range s.Subs {
 		if s.Subs[i].ID == id {
 			return &s.Subs[i]
+		}
+	}
+	return nil
+}
+
+func (s *State) DeviceByMAC(mac string) *Device {
+	for i := range s.Devices {
+		if s.Devices[i].MAC == mac {
+			return &s.Devices[i]
 		}
 	}
 	return nil

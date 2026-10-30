@@ -22,6 +22,9 @@ var T = {
 		connect: 'Connect', disconnect: 'Disconnect',
 		yourNet: 'Your network', exit: 'Exit',
 		up: 'Up', down: 'Down', delay: 'Delay', used: 'Used', conns: 'Connections', upFor: 'Connected for',
+		devices: 'Devices', newDevices: 'Devices without a setting of their own', viaTunnel: 'Through the tunnel', direct: 'Direct, without the tunnel', block: 'No internet', viaServer: 'Through {0}',
+		noDevices: 'No devices seen yet', noDevicesHint: 'Devices appear here once they connect to the router.', offlineDev: 'offline', rename: 'Rename', devName: 'Device name',
+		usageHint: 'Used through the tunnel since the router service started', directNotMeasured: 'direct traffic is not counted', server: 'Server',
 		nodes: 'Servers', subs: 'Subscriptions', rules: 'Routing', settings: 'Settings', logs: 'Log',
 		auto: 'Fastest, automatically', autoHint: 'Switches by itself when a server slows down or fails',
 		addedByYou: 'Added by you', add: 'Add servers', testAll: 'Test all', removeFailed: 'Remove failed',
@@ -65,6 +68,9 @@ var T = {
 		connect: 'اتصال', disconnect: 'قطع اتصال',
 		yourNet: 'شبکه شما', exit: 'خروجی',
 		up: 'ارسال', down: 'دریافت', delay: 'پینگ', used: 'مصرف', conns: 'اتصال‌ها', upFor: 'مدت اتصال',
+		devices: 'دستگاه‌ها', newDevices: 'دستگاه‌هایی که تنظیم جداگانه ندارند', viaTunnel: 'از تونل', direct: 'مستقیم، بدون تونل', block: 'بدون اینترنت', viaServer: 'از طریق {0}',
+		noDevices: 'هنوز دستگاهی دیده نشده', noDevicesHint: 'دستگاه‌ها بعد از وصل شدن به روتر این‌جا نمایش داده می‌شوند.', offlineDev: 'آفلاین', rename: 'تغییر نام', devName: 'نام دستگاه',
+		usageHint: 'مصرف از تونل از زمان شروع سرویس روتر', directNotMeasured: 'ترافیک مستقیم شمرده نمی‌شود', server: 'سرور',
 		nodes: 'سرورها', subs: 'اشتراک‌ها', rules: 'مسیریابی', settings: 'تنظیمات', logs: 'گزارش',
 		auto: 'سریع‌ترین، خودکار', autoHint: 'وقتی سروری کند یا قطع شود، خودش عوض می‌کند',
 		addedByYou: 'افزوده‌شده توسط شما', add: 'افزودن سرور', testAll: 'تست همه', removeFailed: 'حذف خراب‌ها',
@@ -202,6 +208,7 @@ function busy(btn, p) {
 var ICON = {
 	power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>',
 	bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
+	pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>',
 	trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
 	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
 	fox: '<svg viewBox="0 0 48 48"><path d="M6 6l12 9h12l12-9-3 18-15 18L9 24z" fill="#F59E0B"/><path d="M18 15h12l-6 8z" fill="#fff" opacity=".9"/><path d="M15 26l9 16 9-16-9 5z" fill="#fff"/><circle cx="17.5" cy="22" r="2" fill="#0E1730"/><circle cx="30.5" cy="22" r="2" fill="#0E1730"/><path d="M22 37h4l-2 3z" fill="#0E1730"/></svg>'
@@ -211,7 +218,7 @@ function icon(name) { var s = h('span', { 'aria-hidden': 'true', html: ICON[name
 /* ------------------------------------------------------------ the app */
 
 var S = {
-	tab: 'nodes', status: null, nodes: [], subs: [], rules: [], settings: null, cores: {},
+	tab: 'nodes', status: null, nodes: [], devices: [], subs: [], rules: [], settings: null, cores: {},
 	speed: { up: 0, down: 0 }, filter: '', offline: false, logSeq: 0, logLines: []
 };
 var root, heroEl, panelEl, tabsEl;
@@ -316,7 +323,7 @@ function countryOf(name) {
 
 /* ---------- tabs */
 
-var TABS = ['nodes', 'subs', 'rules', 'settings', 'logs'];
+var TABS = ['nodes', 'devices', 'subs', 'rules', 'settings', 'logs'];
 function renderTabs() {
 	tabsEl.replaceChildren.apply(tabsEl, TABS.map(function(k) {
 		return h('button', {
@@ -333,6 +340,7 @@ function loadTab() {
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = api('GET', '/api/core').then(function(r) { S.cores = r; }); break;
+	case 'devices': p = Promise.all([api('GET', '/api/devices'), api('GET', '/api/nodes')]).then(function(r) { S.devices = r[0]; S.nodes = r[1]; }); break;
 	case 'logs': S.logSeq = 0; S.logLines = []; p = pollLogs(); break;
 	}
 	renderPanel();
@@ -340,7 +348,7 @@ function loadTab() {
 }
 
 function renderPanel() {
-	var fn = { nodes: panelNodes, subs: panelSubs, rules: panelRules, settings: panelSettings, logs: panelLogs }[S.tab];
+	var fn = { nodes: panelNodes, devices: panelDevices, subs: panelSubs, rules: panelRules, settings: panelSettings, logs: panelLogs }[S.tab];
 	panelEl.replaceChildren(fn());
 }
 
@@ -471,6 +479,67 @@ function dialogAdd() {
 			return loadTab();
 		});
 	});
+}
+
+/* ---------- devices */
+
+function panelDevices() {
+	var def = (S.settings && S.settings.default_policy) || 'proxy';
+	var bar = h('div', { 'class': 'fgz-bar' }, [
+		h('label', { 'for': 'fgz-defpol', 'class': 'grow' }, t('newDevices')),
+		h('select', { id: 'fgz-defpol', style: 'width:auto', onchange: function(e) {
+			saveSetting({ default_policy: e.target.value }).then(loadTab);
+		} }, [['proxy', t('viaTunnel')], ['direct', t('direct')]].map(function(o) {
+			return h('option', { value: o[0], selected: def === o[0] }, o[1]);
+		}))
+	]);
+	if (!S.devices.length)
+		return h('div', { 'class': 'fgz-panel' }, [bar, h('div', { 'class': 'fgz-empty' }, [h('b', {}, t('noDevices')), t('noDevicesHint')])]);
+	return h('div', { 'class': 'fgz-panel' }, [bar].concat(S.devices.map(deviceRow)));
+}
+
+function deviceRow(d) {
+	var value = d.policy === 'node' ? 'node:' + d.node : d.policy;
+	var options = [['proxy', t('viaTunnel')], ['direct', t('direct')], ['block', t('block')]];
+	var servers = S.nodes.map(function(n) { return ['node:' + n.id, n.name]; });
+
+	var usage;
+	if (d.policy === 'direct' || (d.policy === 'block'))
+		usage = h('small', {}, d.policy === 'direct' ? t('directNotMeasured') : '');
+	else
+		usage = h('small', { 'class': 'num', dir: 'ltr', title: t('usageHint') }, [
+			'↓ ' + bytes(d.down) + '  ↑ ' + bytes(d.up),
+			(d.rate_down || d.rate_up) ? '   (' + rate(d.rate_down) + ')' : ''
+		]);
+
+	// Server names are Latin: shown left to right, cut at their end.
+	var sel = h('select', {
+		'aria-label': d.name || d.mac,
+		dir: d.policy === 'node' ? 'ltr' : null,
+		onchange: function(e) {
+			var v = e.target.value, body = v.indexOf('node:') === 0 ? { policy: 'node', node: v.slice(5) } : { policy: v };
+			busy(e.target, api('PUT', '/api/devices/' + d.mac, body).then(loadTab).catch(function(err) { toast(err.message); loadTab(); }));
+		}
+	}, options.map(function(o) { return h('option', { value: o[0], selected: value === o[0] }, o[1]); })
+		.concat(servers.length ? [h('optgroup', { label: t('server') }, servers.map(function(o) {
+			return h('option', { value: o[0], selected: value === o[0] }, o[1]);
+		}))] : []));
+
+	return h('div', { 'class': 'fgz-dev', 'data-policy': d.policy }, [
+		h('span', { 'class': 'state', 'data-on': d.online ? '1' : '0', title: d.online ? '' : t('offlineDev') }),
+		h('div', { 'class': 'name' }, [
+			h('b', { dir: 'auto' }, d.name || d.mac),
+			h('small', { dir: 'ltr' }, (d.ip ? d.ip + '  ' : '') + d.mac + (d.online ? '' : '  (' + t('offlineDev') + ')')),
+			usage
+		]),
+		sel,
+		h('button', { 'class': 'fgz-icon', title: t('rename'), 'aria-label': t('rename'), onclick: function() {
+			var input = h('input', { type: 'text', value: d.name || '', placeholder: d.hostname || d.mac });
+			dialog(t('rename'), d.mac, [h('label', {}, [t('devName'), input])], t('save'), function() {
+				return api('PUT', '/api/devices/' + d.mac, { name: input.value }).then(loadTab);
+			});
+		} }, [icon('pencil')])
+	]);
 }
 
 /* ---------- subscriptions */
@@ -732,6 +801,8 @@ function tick() {
 	if (document.visibilityState !== 'visible') return;
 	refreshStatus();
 	if (S.tab === 'logs') pollLogs();
+	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))
+		api('GET', '/api/devices').then(function(r) { S.devices = r; renderPanel(); }).catch(function() {});
 }
 
 return view.extend({
