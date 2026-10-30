@@ -53,6 +53,7 @@ type App struct {
 	baseUp, baseDown int64 // traffic of instances already stopped
 	dev              *devStats
 	onWarp           bool // traffic is on the WARP backup
+	services         *ServiceResults
 }
 
 func New(p Paths, st *state.Store) *App {

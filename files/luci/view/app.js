@@ -25,6 +25,9 @@ var T = {
 		connect: 'Connect', disconnect: 'Disconnect',
 		yourNet: 'Your network', exit: 'Exit',
 		up: 'Up', down: 'Down', delay: 'Delay', used: 'Used', conns: 'Connections', upFor: 'Connected for',
+		testServices: 'Test sites', testServicesHint: 'Checks which servers open YouTube, Instagram, Telegram, Google and X', share: 'Share', copy: 'Copy link', copied: 'Copied', close: 'Close',
+		scanHint: 'Scan with v2rayNG, Hiddify, Streisand or V2Box to use this server outside home.', qrTooLong: 'This link is too long for a QR code; copy it instead.',
+		testTarget: 'Test servers with', testTargetHint: 'Automatic choice only picks servers that open this site', custom: 'Other address',
 		devices: 'Devices', newDevices: 'Devices without a setting of their own', viaTunnel: 'Through the tunnel', direct: 'Direct, without the tunnel', block: 'No internet', viaServer: 'Through {0}',
 		noDevices: 'No devices seen yet', noDevicesHint: 'Devices appear here once they connect to the router.', offlineDev: 'offline', rename: 'Rename', devName: 'Device name',
 		usageHint: 'Used through the tunnel since the router service started', directNotMeasured: 'direct traffic is not counted', server: 'Server',
@@ -74,6 +77,9 @@ var T = {
 		connect: 'اتصال', disconnect: 'قطع اتصال',
 		yourNet: 'شبکه شما', exit: 'خروجی',
 		up: 'ارسال', down: 'دریافت', delay: 'پینگ', used: 'مصرف', conns: 'اتصال‌ها', upFor: 'مدت اتصال',
+		testServices: 'تست سایت‌ها', testServicesHint: 'بررسی می‌کند کدام سرورها یوتیوب، اینستاگرام، تلگرام، گوگل و X را باز می‌کنند', share: 'اشتراک‌گذاری', copy: 'کپی لینک', copied: 'کپی شد', close: 'بستن',
+		scanHint: 'با v2rayNG، Hiddify، Streisand یا V2Box اسکن کنید تا بیرون از خانه هم از همین سرور استفاده کنید.', qrTooLong: 'این لینک برای QR کد خیلی طولانی است؛ آن را کپی کنید.',
+		testTarget: 'تست سرورها با', testTargetHint: 'انتخاب خودکار فقط سرورهایی را برمی‌دارد که این سایت را باز می‌کنند', custom: 'آدرس دیگر',
 		devices: 'دستگاه‌ها', newDevices: 'دستگاه‌هایی که تنظیم جداگانه ندارند', viaTunnel: 'از تونل', direct: 'مستقیم، بدون تونل', block: 'بدون اینترنت', viaServer: 'از طریق {0}',
 		noDevices: 'هنوز دستگاهی دیده نشده', noDevicesHint: 'دستگاه‌ها بعد از وصل شدن به روتر این‌جا نمایش داده می‌شوند.', offlineDev: 'آفلاین', rename: 'تغییر نام', devName: 'نام دستگاه',
 		usageHint: 'مصرف از تونل از زمان شروع سرویس روتر', directNotMeasured: 'ترافیک مستقیم شمرده نمی‌شود', server: 'سرور',
@@ -215,6 +221,7 @@ var ICON = {
 	power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>',
 	bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
 	pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>',
+	qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v1M14 20h1M18 20h3v-3"/></svg>',
 	trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
 	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
 	fox: '<svg viewBox="0 0 48 48"><path d="M6 6l12 9h12l12-9-3 18-15 18L9 24z" fill="#F59E0B"/><path d="M18 15h12l-6 8z" fill="#fff" opacity=".9"/><path d="M15 26l9 16 9-16-9 5z" fill="#fff"/><circle cx="17.5" cy="22" r="2" fill="#0E1730"/><circle cx="30.5" cy="22" r="2" fill="#0E1730"/><path d="M22 37h4l-2 3z" fill="#0E1730"/></svg>'
@@ -343,7 +350,7 @@ function renderTabs() {
 function loadTab() {
 	var p;
 	switch (S.tab) {
-	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; }); break;
+	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
@@ -372,6 +379,7 @@ function panelNodes() {
 			oninput: function(e) { S.filter = e.target.value; var c = e.target.selectionStart; renderPanel(); var i = panelEl.querySelector('input'); i.focus(); i.setSelectionRange(c, c); } }),
 		h('button', { 'class': 'fgz-btn primary', onclick: dialogAdd }, t('add')),
 		testAllBtn(),
+		servicesBtn(),
 		h('button', { 'class': 'fgz-btn danger', onclick: function(e) {
 			busy(e.currentTarget, api('POST', '/api/nodes/delete', { failed: true }).then(function(r) {
 				toast(t('removed', r.deleted || 0)); return loadTab();
@@ -425,7 +433,7 @@ function row(id, name, sub, delay, checked, live) {
 		onkeydown: function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(id); } }
 	}, [
 		h('span', { 'class': 'dot' }),
-		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: 'ltr' }, sub) : null]),
+		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: 'ltr' }, sub) : null, serviceChips(id)]),
 		id === 'auto' || !delayText ? h('span') : h('span', { 'class': 'fgz-delay num', 'data-q': q, dir: delay > 0 ? 'ltr' : null }, delayText),
 		id === 'auto' ? h('span') : h('span', { style: 'display:flex' }, [
 			h('button', { 'class': 'fgz-icon', title: t('test'), 'aria-label': t('test'), onclick: function(e) {
@@ -436,6 +444,10 @@ function row(id, name, sub, delay, checked, live) {
 					renderPanel();
 				}));
 			} }, [icon('bolt')]),
+			h('button', { 'class': 'fgz-icon', title: t('share'), 'aria-label': t('share'), onclick: function(e) {
+				e.stopPropagation();
+				showShare(id, name);
+			} }, [icon('qr')]),
 			h('button', { 'class': 'fgz-icon', title: t('remove'), 'aria-label': t('remove'), onclick: function(e) {
 				e.stopPropagation();
 				api('DELETE', '/api/nodes/' + id).then(loadTab).catch(function(err) { toast(err.message); });
@@ -443,6 +455,53 @@ function row(id, name, sub, delay, checked, live) {
 		])
 	]);
 	return el;
+}
+
+// Which of the usual sites a server opens, from the last service test.
+function serviceChips(id) {
+	var res = S.services && S.services.results && S.services.results[id];
+	if (!res || id === 'auto') return null;
+	return h('span', { 'class': 'fgz-svcs', dir: 'ltr' }, S.services.services.map(function(s) {
+		var d = res[s.id];
+		if (d == null) return null;
+		return h('span', { 'class': 'fgz-svc', 'data-ok': d > 0 ? '1' : '0',
+			title: s.name + ': ' + (d > 0 ? num(d) + ' ms' : t('failedShort')) }, s.name);
+	}));
+}
+
+function servicesBtn() {
+	var b = h('button', { 'class': 'fgz-btn', title: t('testServicesHint'), onclick: function() {
+		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
+		b.textContent = t('testing');
+		busy(b, api('POST', '/api/services/test').then(function(r) {
+			S.services = r;
+			renderPanel();
+		}).catch(function(e) { toast(e.message); b.textContent = t('testServices'); }));
+	} }, t('testServices'));
+	return b;
+}
+
+function showShare(id, name) {
+	api('GET', '/api/nodes/' + id + '/share').then(function(r) {
+		var dlg = h('dialog', { 'class': 'fgz-dialog' });
+		var ta = h('textarea', { readonly: true, rows: 3, spellcheck: 'false' }, r.link);
+		var copy = h('button', { 'class': 'fgz-btn primary', type: 'button', onclick: function() {
+			var done = function() { copy.textContent = t('copied'); };
+			if (navigator.clipboard && window.isSecureContext)
+				navigator.clipboard.writeText(r.link).then(done);
+			else { ta.select(); document.execCommand('copy'); done(); }
+		} }, t('copy'));
+		dlg.appendChild(h('form', { method: 'dialog' }, [
+			h('h3', { dir: 'auto' }, name),
+			r.svg ? h('div', { 'class': 'fgz-qr', html: r.svg, role: 'img', 'aria-label': 'QR' }) : null,
+			h('p', {}, r.svg ? t('scanHint') : t('qrTooLong')),
+			ta,
+			h('div', { 'class': 'fgz-actions' }, [h('button', { 'class': 'fgz-btn', value: 'close' }, t('close')), copy])
+		]));
+		dlg.addEventListener('close', function() { dlg.remove(); });
+		root.appendChild(dlg);
+		dlg.showModal();
+	}).catch(function(e) { toast(e.message); });
 }
 
 function choose(id) {
@@ -457,7 +516,7 @@ function choose(id) {
 function dialog(title, hint, fields, okText, onOk) {
 	var dlg = h('dialog', { 'class': 'fgz-dialog' });
 	var form = h('form', { method: 'dialog' }, [h('h3', {}, title), hint ? h('p', {}, hint) : null].concat(fields).concat([
-		h('div', { 'class': 'actions' }, [
+		h('div', { 'class': 'fgz-actions' }, [
 			h('button', { 'class': 'fgz-btn', value: 'cancel', formnovalidate: true }, t('cancel')),
 			h('button', { 'class': 'fgz-btn primary', value: 'ok' }, okText)
 		])
@@ -680,6 +739,33 @@ function selectField(key, label, options) {
 	]);
 }
 
+// The address servers are measured with: a site that matters to the user
+// makes automatic choice skip servers that cannot open it.
+var TEST_TARGETS = [
+	['https://cp.cloudflare.com/generate_204', 'Cloudflare'],
+	['https://www.youtube.com/generate_204', 'YouTube'],
+	['https://www.instagram.com/robots.txt', 'Instagram'],
+	['https://www.google.com/generate_204', 'Google'],
+	['https://telegram.org/robots.txt', 'Telegram']
+];
+
+function testTargetField() {
+	var cur = S.settings.test_url;
+	var known = TEST_TARGETS.some(function(x) { return x[0] === cur; });
+	var custom = h('input', { type: 'url', 'class': 'ltr', value: cur, hidden: known,
+		onchange: function(e) { saveSetting({ test_url: e.target.value }); } });
+	var sel = h('select', { id: 'fgz-test-url', onchange: function(e) {
+		if (e.target.value === '') { custom.hidden = false; custom.focus(); return; }
+		custom.hidden = true;
+		saveSetting({ test_url: e.target.value });
+	} }, TEST_TARGETS.map(function(x) { return h('option', { value: x[0], selected: x[0] === cur }, x[1]); })
+		.concat([h('option', { value: '', selected: !known }, t('custom'))]));
+	return h('div', { 'class': 'fgz-field' }, [
+		h('label', { 'for': 'fgz-test-url' }, [t('testTarget'), h('small', {}, t('testTargetHint'))]),
+		h('div', { style: 'display:grid;gap:6px' }, [sel, custom])
+	]);
+}
+
 function section(title, kids) {
 	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, title), h('div', { 'class': 'fgz-panel' }, kids)]);
 }
@@ -703,7 +789,7 @@ function panelSettings() {
 	};
 	return h('div', {}, [
 		section(t('sConnection'), [
-			inputField('test_url', t('testUrl'), t('testUrlHint'), 'url'),
+			testTargetField(),
 			inputField('test_interval', t('testInterval'), null, 'number', int),
 			inputField('tolerance', t('tolerance'), t('toleranceHint'), 'number', int),
 			switchField('keep_warm', t('keepWarm'), t('keepWarmHint'))

@@ -450,6 +450,10 @@
 /* dialog */
 .fgz-dialog {
 	border: 0;
+	margin: auto;
+	inset: 0;
+	max-height: calc(100vh - 32px);
+	overflow: auto;
 	border-radius: var(--r-l);
 	padding: 0;
 	width: min(560px, calc(100vw - 32px));
@@ -460,7 +464,8 @@
 .fgz-dialog form { padding: 20px; display: grid; gap: 12px; }
 .fgz-dialog h3 { margin: 0; font-size: 18px; }
 .fgz-dialog p { margin: 0; color: var(--ink-2); font-size: 14px; }
-.fgz-dialog .actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* LuCI themes style .actions and reset dialog margins: own names, own centring. */
+.fgz-dialog .fgz-actions { display: flex; gap: 8px; justify-content: flex-end; background: none; padding: 0; margin: 0; border: 0; }
 
 .fgz-toast {
 	position: fixed;
@@ -518,3 +523,20 @@
 	.fgz-dev select { grid-column: 2 / -1; order: 5; }
 }
 .fgz[dir="ltr"] .fgz-dev .name b[dir="auto"], .fgz[dir="ltr"] .fgz-row .name b[dir="auto"] { text-align: left; }
+
+/* sites each server opens, and sharing */
+.fgz-svcs { display: flex; flex-wrap: wrap; gap: 4px; margin-block-start: 4px; }
+.fgz[dir="rtl"] .fgz-svcs { justify-content: flex-end; }
+.fgz-svc {
+	font-size: 11px;
+	line-height: 1;
+	padding: 3px 7px;
+	border-radius: 999px;
+	background: var(--ok-soft);
+	color: var(--ok);
+	font-weight: 600;
+}
+.fgz-svc[data-ok="0"] { background: var(--bad-soft); color: var(--bad); text-decoration: line-through; }
+.fgz-qr { background: #fff; border-radius: var(--r-m); padding: 8px; width: min(320px, 100%); margin-inline: auto; }
+.fgz-qr svg { display: block; width: 100%; height: auto; }
+.fgz-dialog textarea { min-height: 72px; font-size: 12px; }

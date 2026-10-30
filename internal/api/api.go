@@ -23,6 +23,7 @@ import (
 	"foxgozar/internal/clash"
 	"foxgozar/internal/core"
 	"foxgozar/internal/link"
+	"foxgozar/internal/qrsvg"
 	"foxgozar/internal/state"
 )
 
@@ -60,6 +61,9 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/select", s.selectNode)
 	h("POST /api/test", s.testAll)
 	h("POST /api/test/{id}", s.testOne)
+	h("GET /api/services", s.servicesLast)
+	h("POST /api/services/test", s.servicesTest)
+	h("GET /api/nodes/{id}/share", s.share)
 
 	h("GET /api/subs", s.subs)
 	h("POST /api/subs", s.addSub)
@@ -741,4 +745,29 @@ func (s *Server) forgetDevice(w http.ResponseWriter, r *http.Request) (any, erro
 
 func (s *Server) warpStatus(w http.ResponseWriter, r *http.Request) (any, error) {
 	return s.App.WarpStatus(r.Context()), nil
+}
+
+func (s *Server) servicesLast(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.LastServices(), nil
+}
+
+func (s *Server) servicesTest(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.TestServices(r.Context())
+}
+
+// share gives a node's share link and its QR code, for the phone apps.
+func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
+	st := s.App.Store.View()
+	n := st.NodeByID(r.PathValue("id"))
+	if n == nil {
+		return nil, httpErr{404, "no such server"}
+	}
+	if n.Link == "" {
+		return nil, errors.New("this server was added as a sing-box JSON config, so it has no share link")
+	}
+	svg, err := qrsvg.Encode(n.Link)
+	if err != nil {
+		return map[string]string{"link": n.Link}, nil // the link alone still helps
+	}
+	return map[string]string{"link": n.Link, "svg": svg}, nil
 }

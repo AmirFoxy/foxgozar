@@ -150,6 +150,7 @@ func dataFiles(bin, version string) []file {
 		}
 		data = append(data, file{"./www/luci-static/resources/foxgozar/" + filepath.Base(r), 0o644, b})
 	}
+	data = append(data, file{"./usr/share/foxgozar/NOTICE", 0o644, readText("files/NOTICE")})
 	// /cgi-bin/foxgozar: the web UI reaches the API through LuCI's own server.
 	data = append(data, file{"./www/cgi-bin/foxgozar", 0o755, readText("files/cgi-api")})
 	return data
