@@ -91,7 +91,7 @@ func main() {
 		name := fmt.Sprintf("foxgozar_%s_%s.ipk", *version, arch)
 		must(os.WriteFile(filepath.Join(*out, name), ipk(arch, *version, bin), 0o644))
 		fmt.Println(name)
-		stageAPK(filepath.Join(*out, "apk", arch), arch, *version, bin)
+		fmt.Println(writeAPK(*out, arch, *version, bin))
 	}
 }
 

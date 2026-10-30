@@ -110,9 +110,10 @@ func run() error {
 		// off, so the next boot must still connect.
 		_ = st.Update(func(s *state.State) error { s.Settings.Enabled = true; return nil })
 	}
-	sh, c := context.WithTimeout(context.Background(), 2*time.Second)
-	defer c()
-	return srv.Shutdown(sh)
+	// Not a graceful Shutdown: an open UI keeps its live-speed stream
+	// connected, and waiting for it only delayed every stop and restart.
+	_ = srv.Close()
+	return nil
 }
 
 // ---------------------------------------------------------------- CLI
