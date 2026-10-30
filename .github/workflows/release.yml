@@ -29,7 +29,9 @@ jobs:
       - if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "FoxGozar $GITHUB_REF_NAME" --notes "Install: copy the .apk for your router's architecture (apk --print-arch) and run: apk add --allow-untrusted foxgozar_*.apk"
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --title "FoxGozar $GITHUB_REF_NAME" \
+            --notes "Install: copy the .apk for your router's architecture (apk --print-arch) and run: apk add --allow-untrusted foxgozar_*.apk"
       - if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
