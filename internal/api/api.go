@@ -264,17 +264,28 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) (any, error
 
 func validateSettings(s state.Settings) error {
 	ports := map[int]string{}
-	for name, p := range map[string]int{"tproxy_port": s.TProxyPort, "dns_port": s.DNSPort, "clash_port": s.ClashPort, "api_port": s.APIPort, "mixed_port": s.MixedPort} {
-		if name == "mixed_port" && p == 0 {
+	// The core's own ports are used three times over (p, p+1, p+2): a new
+	// instance starts next to the running one when the config changes.
+	for _, x := range []struct {
+		name  string
+		port  int
+		width int
+	}{
+		{"tproxy_port", s.TProxyPort, 3}, {"dns_port", s.DNSPort, 3}, {"clash_port", s.ClashPort, 3},
+		{"api_port", s.APIPort, 1}, {"mixed_port", s.MixedPort, 1},
+	} {
+		if x.name == "mixed_port" && x.port == 0 {
 			continue
 		}
-		if p < 1 || p > 65535 {
-			return fmt.Errorf("%s: invalid port", name)
+		if x.port < 1 || x.port+x.width-1 > 65535 {
+			return fmt.Errorf("%s: invalid port", x.name)
 		}
-		if o, dup := ports[p]; dup {
-			return fmt.Errorf("%s and %s use the same port", name, o)
+		for p := x.port; p < x.port+x.width; p++ {
+			if o, dup := ports[p]; dup {
+				return fmt.Errorf("%s and %s overlap (port %d)", x.name, o, p)
+			}
+			ports[p] = x.name
 		}
-		ports[p] = name
 	}
 	if s.Mode != "auto" && s.Mode != "manual" {
 		return errors.New("mode must be auto or manual")
@@ -613,18 +624,28 @@ func (s *Server) traffic(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(200)
 	fl.Flush()
-	for r.Context().Err() == nil {
-		_ = s.App.Clash().StreamTraffic(r.Context(), func(t clash.Traffic) {
-			fmt.Fprintf(w, "data: {\"up\":%d,\"down\":%d}\n\n", t.Up, t.Down)
-			fl.Flush()
-		})
-		// Core not running or restarting: report zero and retry.
-		fmt.Fprint(w, "data: {\"up\":0,\"down\":0}\n\n")
-		fl.Flush()
+	// From the totals of every core instance, not one instance's stream:
+	// during a config change the old and the new instance both carry traffic.
+	prevUp, prevDown, _, _ := s.App.Totals(r.Context())
+	prev := time.Now()
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
 		select {
 		case <-r.Context().Done():
-		case <-time.After(2 * time.Second):
+			return
+		case <-tick.C:
 		}
+		up, down, _, _ := s.App.Totals(r.Context())
+		secs := time.Since(prev).Seconds()
+		prev = time.Now()
+		ru, rd := float64(up-prevUp)/secs, float64(down-prevDown)/secs
+		if ru < 0 || rd < 0 { // an instance stopped between two readings
+			ru, rd = 0, 0
+		}
+		prevUp, prevDown = up, down
+		fmt.Fprintf(w, "data: {\"up\":%d,\"down\":%d}\n\n", int64(ru), int64(rd))
+		fl.Flush()
 	}
 }
 

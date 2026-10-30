@@ -4,7 +4,6 @@ package app
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,45 +40,39 @@ type App struct {
 	Store *state.Store
 	Log   *core.Ring
 
-	sb    *core.Process
-	xr    *core.Process // only while there are Xray nodes
-	clash *clash.Client
+	slots  []*slot
+	active int // the slot new connections go to
 
-	op       sync.Mutex // one start/stop/apply at a time
-	mu       sync.Mutex
-	phase    string
-	message  string
-	since    time.Time
-	lastHash [32]byte
-	xrayHash [32]byte
-	delays   map[string]int // live measurements, persisted now and then
-	busy     map[string]bool
+	op               sync.Mutex // one start/stop/apply at a time
+	mu               sync.Mutex
+	phase            string
+	message          string
+	since            time.Time
+	delays           map[string]int // live measurements, persisted now and then
+	busy             map[string]bool
+	baseUp, baseDown int64 // traffic of instances already stopped
 }
 
 func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
 		delays: map[string]int{}, busy: map[string]bool{}}
-	s := st.View()
-	cfg := filepath.Join(p.Run, "sing-box.json")
-	a.sb = &core.Process{
-		Name: "sing-box", Bin: a.SingBoxBin(), Log: a.Log,
-		Args:  []string{"run", "-c", cfg, "-D", p.Run, "--disable-color"},
-		Check: []string{"check", "-c", cfg},
+	for i := 0; i < maxSlots; i++ {
+		a.slots = append(a.slots, a.newSlot(i))
 	}
-	a.sb.OnExit = func(error) { a.onCoreExit() }
-	xcfg := filepath.Join(p.Run, "xray.json")
-	a.xr = &core.Process{
-		Name: "xray", Bin: a.XrayBin(), Log: a.Log,
-		Args:  []string{"run", "-c", xcfg},
-		Check: []string{"run", "-test", "-c", xcfg},
-	}
-	a.clash = clash.New(s.Settings.ClashPort, s.Token)
 	return a
 }
 
 func (a *App) SingBoxBin() string { return filepath.Join(a.Paths.Bin, "sing-box") }
 func (a *App) XrayBin() string    { return filepath.Join(a.Paths.Bin, "xray") }
 func (a *App) RuleDir() string    { return filepath.Join(a.Paths.Etc, "rules") }
+
+// act is the slot new connections go to.
+func (a *App) act() *slot { return a.slots[a.active] }
+
+// Clash is the API of the instance new connections go to.
+func (a *App) Clash() *clash.Client { return a.clientFor(a.act()) }
+
+func (a *App) running() bool { return a.act().sb.Running() }
 
 func (a *App) setPhase(p, msg string) {
 	a.mu.Lock()
@@ -103,7 +96,7 @@ func (a *App) Phase() (string, string, time.Time) {
 func (a *App) Fetcher() *core.Fetcher {
 	s := a.Store.View().Settings
 	f := &core.Fetcher{Mirror: s.GitHubMirror}
-	if a.sb.Running() && s.MixedPort > 0 {
+	if a.running() && s.MixedPort > 0 {
 		f.Clients = append(f.Clients, core.HTTPClient(s.MixedPort, 2*time.Minute))
 	}
 	f.Clients = append(f.Clients, core.HTTPClient(0, 2*time.Minute))
@@ -165,21 +158,23 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}
 	a.setPhase(Starting, "")
-	if err := a.warmLocked(st); err != nil {
+	// Nothing is routed yet, so an existing warm core may simply reload.
+	if err := a.warmLocked(st, false); err != nil {
 		a.setPhase(Failed, err.Error())
 		return err
 	}
-	if !core.WaitListening(st.Settings.TProxyPort, 20*time.Second, a.sb.Running) {
-		a.sb.Stop()
+	sl := a.act()
+	if !core.WaitListening(sl.tproxy(st.Settings), 20*time.Second, sl.sb.Running) {
 		msg := "sing-box did not start listening"
-		if e := a.sb.LastError(); e != "" {
+		if e := sl.sb.LastError(); e != "" {
 			msg += ": " + e
 		}
+		a.stopSlot(sl)
 		a.setPhase(Failed, msg)
 		return errors.New(msg)
 	}
-	if err := fw.Up(a.fwConfig(st.Settings)); err != nil {
-		a.sb.Stop()
+	if err := fw.Up(a.fwConfig(st.Settings, sl)); err != nil {
+		a.stopSlot(sl)
 		fw.Down()
 		a.setPhase(Failed, "firewall: "+err.Error())
 		return err
@@ -190,35 +185,52 @@ func (a *App) Start(ctx context.Context) error {
 	return nil
 }
 
-// warmLocked makes sure the core runs the current config, without touching
-// the firewall. A core that is already up with this config costs nothing; a
-// changed config is reloaded in place. Each sing-box exec costs about a
-// second on a 700 MHz router, so the config is not checked separately on a
-// cold start: a bad one makes the core exit at once and that is reported.
-func (a *App) warmLocked(st state.State) error {
-	if err := a.syncXrayLocked(st); err != nil {
+// warmLocked makes the active instance run the current config. With live
+// traffic (live == true) a changed config goes to a fresh instance next to
+// the running one, which keeps its open connections until they end; with no
+// traffic, or too little memory for two, the instance reloads in place.
+// Each sing-box exec costs about a second on a 700 MHz router, so a cold
+// start skips the separate config check: a bad config exits at once and is
+// reported.
+func (a *App) warmLocked(st state.State, live bool) error {
+	cur := a.act()
+	if !cur.sb.Running() {
+		return a.startSlot(st, cur)
+	}
+	if a.configHash(st, cur) == cur.hash {
+		return a.syncXray(st, cur)
+	}
+	if !live || memAvailable() < swapMemNeeded {
+		if cur.restart {
+			a.stopSlot(cur)
+			return a.startSlot(st, cur)
+		}
+		return a.reloadSlot(st, cur)
+	}
+	next := a.freeSlot()
+	if err := a.startSlot(st, next); err != nil {
+		a.stopSlot(next)
 		return err
 	}
-	if a.sb.Running() {
-		if a.configHash(st) == a.lastHash {
-			return nil
+	if !core.WaitListening(next.tproxy(st.Settings), 20*time.Second, next.sb.Running) {
+		msg := "the new configuration did not start"
+		if e := next.sb.LastError(); e != "" {
+			msg += ": " + e
 		}
-		if err := a.writeConfig(st); err != nil {
-			return err
-		}
-		if err := a.sb.Validate(); err != nil {
-			return fmt.Errorf("config rejected by sing-box: %w", err)
-		}
-		if err := a.sb.Reload(); err != nil {
-			return err
-		}
-		time.Sleep(150 * time.Millisecond)
-		return nil
+		a.stopSlot(next)
+		return errors.New(msg)
 	}
-	if err := a.writeConfig(st); err != nil {
+	// From here new connections go to next; open ones stay where they are,
+	// because TPROXY hands packets of an established connection to the
+	// socket that owns it, whatever port the rule names.
+	if err := fw.Up(a.fwConfig(st.Settings, next)); err != nil {
+		a.stopSlot(next)
 		return err
 	}
-	return a.sb.Start()
+	a.active = next.id
+	a.applySelection(context.Background(), st.Settings)
+	go a.drain(cur)
+	return nil
 }
 
 // Stop disconnects: the network goes back to normal at once. With KeepWarm
@@ -240,23 +252,27 @@ func (a *App) Shutdown() {
 func (a *App) stopLocked(full bool) {
 	_ = a.Store.Update(func(s *state.State) error { s.Settings.Enabled = false; return nil })
 	fw.Down()
+	// An instance finishing old connections has nothing left to serve.
+	for _, other := range a.slots {
+		if other != a.act() && other.sb.Running() {
+			a.stopSlot(other)
+		}
+	}
 	if full {
-		a.sb.Stop()
-		a.xr.Stop()
+		a.stopSlot(a.act())
 	}
 	a.persistDelays()
 	_ = fw.KillSwitch(false, nil)
 	a.setPhase(Stopped, "")
 }
 
-// Apply brings a running tunnel in line with the saved state. Changes that
-// do not alter the core config (choosing a node, names, delays) cost nothing;
-// others are a reload inside the running core, not a restart.
+// Apply brings the core in line with the saved state. Changes that do not
+// alter the core config (choosing a node, names, delays) cost nothing.
 func (a *App) Apply(ctx context.Context) error {
 	a.op.Lock()
 	defer a.op.Unlock()
 	st := a.Store.View()
-	if !a.sb.Running() {
+	if !a.running() {
 		return nil
 	}
 	if len(st.Nodes) == 0 {
@@ -264,20 +280,24 @@ func (a *App) Apply(ctx context.Context) error {
 		return nil
 	}
 	// A warm core follows every change too, so Connect stays instant.
-	if a.configHash(st) != a.lastHash {
-		// Rules stay in place: packets wait in the kernel for the few
-		// hundred ms the core needs to reopen its sockets.
-		if err := a.warmLocked(st); err != nil {
+	if before := a.act(); a.configHash(st, before) != before.hash {
+		if err := a.warmLocked(st, st.Settings.Enabled); err != nil {
 			a.Log.Add("foxgozar", "new config not applied, the running one stays: "+err.Error())
 			return err
 		}
-		core.WaitListening(st.Settings.TProxyPort, 10*time.Second, a.sb.Running)
+		if a.act() != before {
+			a.Log.Add("foxgozar", "configuration applied; open connections continue on the previous instance")
+			// warmLocked already installed the rules for the new instance.
+			a.syncKillSwitch(st.Settings, true)
+			return nil
+		}
+		core.WaitListening(a.act().tproxy(st.Settings), 10*time.Second, a.act().sb.Running)
 		a.Log.Add("foxgozar", "configuration reloaded")
 	}
 	if !st.Settings.Enabled {
 		return nil
 	}
-	if err := fw.Up(a.fwConfig(st.Settings)); err != nil {
+	if err := fw.Up(a.fwConfig(st.Settings, a.act())); err != nil {
 		return err
 	}
 	a.applySelection(ctx, st.Settings)
@@ -292,9 +312,10 @@ func (a *App) applySelection(ctx context.Context, s state.Settings) {
 	}
 	c, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
+	cl := a.Clash()
 	// The API comes up with the core; give it a moment on a fresh start.
 	for i := 0; i < 20; i++ {
-		if err := a.clash.Select(c, gen.TagProxy, target); err == nil {
+		if err := cl.Select(c, gen.TagProxy, target); err == nil {
 			return
 		} else if i == 19 {
 			a.Log.Add("foxgozar", "select: "+err.Error())
@@ -319,13 +340,27 @@ func (a *App) Select(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if a.sb.Running() {
+	if a.running() {
 		a.applySelection(ctx, a.Store.View().Settings)
 	}
 	return nil
 }
 
-func (a *App) onCoreExit() {
+func (a *App) onCoreExit(sl *slot) {
+	a.mu.Lock()
+	isActive := a.slots[a.active] == sl
+	a.mu.Unlock()
+	if !isActive {
+		// An instance that was finishing old connections: nothing to restore.
+		go func() {
+			a.op.Lock()
+			defer a.op.Unlock()
+			if a.act() != sl {
+				a.stopSlot(sl)
+			}
+		}()
+		return
+	}
 	// The process supervisor restarts the core. Until it listens again the
 	// rules would send everything into a closed port, so take them away -
 	// unless the kill switch wants devices offline rather than exposed.
@@ -337,11 +372,14 @@ func (a *App) onCoreExit() {
 	a.syncKillSwitch(st.Settings, false)
 	a.setPhase(Starting, "sing-box stopped unexpectedly, restarting")
 	go func() {
-		if core.WaitListening(st.Settings.TProxyPort, 60*time.Second, nil) && a.Store.View().Settings.Enabled {
+		if core.WaitListening(sl.tproxy(st.Settings), 60*time.Second, nil) && a.Store.View().Settings.Enabled {
 			a.op.Lock()
 			defer a.op.Unlock()
 			st := a.Store.View()
-			if err := fw.Up(a.fwConfig(st.Settings)); err == nil {
+			if a.act() != sl {
+				return
+			}
+			if err := fw.Up(a.fwConfig(st.Settings, sl)); err == nil {
 				a.applySelection(context.Background(), st.Settings)
 				a.syncKillSwitch(st.Settings, true)
 				a.setPhase(Connected, "recovered")
@@ -357,37 +395,9 @@ func (a *App) syncKillSwitch(s state.Settings, tunnelUp bool) {
 	}
 }
 
-func (a *App) env(st state.State) gen.Env {
-	return gen.Env{RuleDir: a.RuleDir(), CacheFile: filepath.Join(a.Paths.Run, "cache.db"), Secret: st.Token}
-}
-
-func (a *App) writeConfig(st state.State) error {
-	b, err := gen.Build(st, a.env(st))
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(a.Paths.Run, 0o755); err != nil {
-		return err
-	}
-	if err := state.WriteFileAtomic(filepath.Join(a.Paths.Run, "sing-box.json"), b, 0o600); err != nil {
-		return err
-	}
-	a.lastHash = a.configHash(st)
-	return nil
-}
-
-// configHash ignores what does not need a reload: delays and names.
-func (a *App) configHash(st state.State) [32]byte {
-	for i := range st.Nodes {
-		st.Nodes[i].Delay, st.Nodes[i].TestedAt, st.Nodes[i].Name = 0, 0, ""
-	}
-	b, _ := gen.Build(st, a.env(st))
-	return sha256.Sum256(b)
-}
-
-func (a *App) fwConfig(s state.Settings) fw.Config {
+func (a *App) fwConfig(s state.Settings, sl *slot) fw.Config {
 	c := fw.Config{
-		TProxyPort: s.TProxyPort, DNSPort: s.DNSPort, LANInterfaces: s.LANInterfaces,
+		TProxyPort: sl.tproxy(s), DNSPort: sl.dns(s), LANInterfaces: s.LANInterfaces,
 		ProxyRouter: s.ProxyRouter, IPv6: s.IPv6, CoreMark: gen.RoutingMark,
 		ACLMode: s.ACLMode, FakeIP: s.FakeIP,
 	}
@@ -428,7 +438,18 @@ func (a *App) installCore(ctx context.Context, k core.Kind) error {
 	return err
 }
 
-// UpdateCore installs the newest core and, if the tunnel is up, restarts it.
+// forceNew makes the next Apply start a fresh instance even though the
+// config is the same: a new core binary or new rule-set files.
+func (a *App) forceNew() {
+	a.op.Lock()
+	cur := a.act()
+	cur.hash, cur.xrayHash = [32]byte{}, [32]byte{}
+	cur.restart = true
+	a.op.Unlock()
+}
+
+// UpdateCore installs the newest core and moves traffic onto it, the same
+// way as any other change: open connections finish on the old binary.
 func (a *App) UpdateCore(ctx context.Context, k core.Kind) (string, error) {
 	if !a.claim("core-" + string(k)) {
 		return "", errors.New("already updating")
@@ -437,22 +458,9 @@ func (a *App) UpdateCore(ctx context.Context, k core.Kind) (string, error) {
 	if err := a.installCore(ctx, k); err != nil {
 		return "", err
 	}
-	if k == core.Xray {
-		a.op.Lock()
-		a.xr.Stop()
-		a.xrayHash = [32]byte{}
-		err := a.syncXrayLocked(a.Store.View())
-		a.op.Unlock()
-		if err != nil {
-			return "", err
-		}
-	}
-	if k == core.SingBox && a.sb.Running() {
-		a.op.Lock()
-		fw.Down()
-		a.sb.Stop()
-		a.op.Unlock()
-		if err := a.Start(ctx); err != nil {
+	if a.running() {
+		a.forceNew()
+		if err := a.Apply(ctx); err != nil {
 			return "", err
 		}
 	}
@@ -465,8 +473,8 @@ func (a *App) UpdateRuleSets(ctx context.Context) error {
 	}
 	defer a.release("rules")
 	updated, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), a.wantedRuleSets(a.Store.View().Settings))
-	if len(updated) > 0 && a.sb.Running() {
-		a.lastHash = [32]byte{} // force the reload: files changed under the same names
+	if len(updated) > 0 && a.running() {
+		a.forceNew() // files changed under the same names
 		if e := a.Apply(ctx); e != nil && err == nil {
 			err = e
 		}
@@ -526,13 +534,13 @@ func (a *App) release(k string) {
 
 // TestAll measures every node through the running core, in parallel.
 func (a *App) TestAll(ctx context.Context) (map[string]int, error) {
-	if !a.sb.Running() {
+	if !a.running() {
 		return nil, errors.New("connect first: delays are measured through the core")
 	}
 	s := a.Store.View().Settings
 	c, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	res, err := a.clash.GroupDelay(c, gen.TagAuto, s.TestURL, 5*time.Second)
+	res, err := a.Clash().GroupDelay(c, gen.TagAuto, s.TestURL, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -553,10 +561,10 @@ func (a *App) TestAll(ctx context.Context) (map[string]int, error) {
 }
 
 func (a *App) TestOne(ctx context.Context, id string) (int, error) {
-	if !a.sb.Running() {
+	if !a.running() {
 		return 0, errors.New("connect first")
 	}
-	d, err := a.clash.Delay(ctx, id, a.Store.View().Settings.TestURL, 5*time.Second)
+	d, err := a.Clash().Delay(ctx, id, a.Store.View().Settings.TestURL, 5*time.Second)
 	a.mu.Lock()
 	if err != nil || d <= 0 {
 		a.delays[id] = -1
@@ -619,17 +627,42 @@ type Status struct {
 	Memory      int64  `json:"memory"`
 	SingBox     string `json:"sing_box,omitempty"`
 	CoreRunning bool   `json:"core_running"`
+	Draining    bool   `json:"draining,omitempty"` // a previous instance still finishes connections
+}
+
+// Totals is the traffic since the service started, across every instance.
+func (a *App) Totals(ctx context.Context) (up, down int64, conns int, mem int64) {
+	a.mu.Lock()
+	up, down = a.baseUp, a.baseDown
+	a.mu.Unlock()
+	for _, sl := range a.slots {
+		if !sl.sb.Running() {
+			continue
+		}
+		c, cancel := context.WithTimeout(ctx, 2*time.Second)
+		cs, err := a.clientFor(sl).Connections(c)
+		cancel()
+		if err != nil {
+			continue
+		}
+		up += cs.UploadTotal
+		down += cs.DownloadTotal
+		conns += len(cs.Connections)
+		mem += cs.Memory
+	}
+	return
 }
 
 func (a *App) Status(ctx context.Context) Status {
 	st := a.Store.View()
 	ph, msg, since := a.Phase()
 	s := Status{Phase: ph, Message: msg, Since: since.Unix(), Enabled: st.Settings.Enabled,
-		Mode: st.Settings.Mode, Selected: st.Settings.Selected, Nodes: len(st.Nodes), CoreRunning: a.sb.Running()}
-	if ph == Connected && a.sb.Running() {
+		Mode: st.Settings.Mode, Selected: st.Settings.Selected, Nodes: len(st.Nodes), CoreRunning: a.running(),
+		Draining: a.draining() > 0}
+	if ph == Connected && a.running() {
 		c, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		if px, err := a.clash.Proxies(c); err == nil {
+		if px, err := a.Clash().Proxies(c); err == nil {
 			now := px[gen.TagProxy].Now
 			if now == gen.TagAuto {
 				now = px[gen.TagAuto].Now
@@ -640,14 +673,10 @@ func (a *App) Status(ctx context.Context) Status {
 				s.CurrentName = n.Name
 			}
 		}
-		if cs, err := a.clash.Connections(c); err == nil {
-			s.Upload, s.Download, s.Conns, s.Memory = cs.UploadTotal, cs.DownloadTotal, len(cs.Connections), cs.Memory
-		}
+		s.Upload, s.Download, s.Conns, s.Memory = a.Totals(ctx)
 	}
 	return s
 }
-
-func (a *App) Clash() *clash.Client { return a.clash }
 
 // loop runs the background jobs.
 func (a *App) loop(ctx context.Context) {
@@ -666,9 +695,9 @@ func (a *App) loop(ctx context.Context) {
 		n++
 		st := a.Store.View()
 		// Health: the core answers its API, or it is restarted.
-		if st.Settings.Enabled && a.sb.Running() {
+		if st.Settings.Enabled && a.running() {
 			c, cancel := context.WithTimeout(ctx, 5*time.Second)
-			err := a.clash.Ping(c)
+			err := a.Clash().Ping(c)
 			cancel()
 			if err != nil {
 				failures++
@@ -677,7 +706,7 @@ func (a *App) loop(ctx context.Context) {
 					failures = 0
 					a.op.Lock()
 					fw.Down()
-					a.sb.Stop()
+					a.stopSlot(a.act())
 					a.op.Unlock()
 					go a.Start(ctx)
 				}
@@ -709,19 +738,14 @@ func (a *App) loop(ctx context.Context) {
 	}
 }
 
-func (a *App) Phase0() string {
-	p, _, _ := a.Phase()
-	return p
-}
-
 // collectDelays copies what the urltest group measured on its own.
 func (a *App) collectDelays(ctx context.Context) {
-	if !a.sb.Running() {
+	if !a.running() {
 		return
 	}
 	c, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	px, err := a.clash.Proxies(c)
+	px, err := a.Clash().Proxies(c)
 	if err != nil {
 		return
 	}
@@ -740,7 +764,7 @@ func (a *App) collectDelays(ctx context.Context) {
 
 // ConfigJSON is the generated core config, for the diagnostics page.
 func (a *App) ConfigJSON() json.RawMessage {
-	b, err := os.ReadFile(filepath.Join(a.Paths.Run, "sing-box.json"))
+	b, err := os.ReadFile(a.act().configPath(a.Paths.Run))
 	if err != nil {
 		return json.RawMessage(`null`)
 	}
@@ -759,43 +783,9 @@ func (a *App) Warm() {
 	if _, err := os.Stat(a.SingBoxBin()); err != nil {
 		return
 	}
-	if err := a.warmLocked(st); err != nil {
+	if err := a.warmLocked(st, false); err != nil {
 		a.Log.Add("foxgozar", "warm start: "+err.Error())
 	}
-}
-
-// syncXrayLocked runs Xray when there are nodes only Xray speaks, with a
-// config matching them, and stops it when there are none. Xray has no
-// in-place reload, so it restarts only when its own nodes change.
-func (a *App) syncXrayLocked(st state.State) error {
-	if !gen.HasXray(st.Nodes) {
-		a.xr.Stop()
-		a.xrayHash = [32]byte{}
-		return nil
-	}
-	if _, err := os.Stat(a.XrayBin()); err != nil {
-		a.Log.Add("foxgozar", "Xray is not installed yet; its nodes are skipped until it is")
-		return nil
-	}
-	b, err := gen.BuildXray(st)
-	if err != nil {
-		return err
-	}
-	h := sha256.Sum256(b)
-	if h == a.xrayHash && a.xr.Running() {
-		return nil
-	}
-	if err := state.WriteFileAtomic(filepath.Join(a.Paths.Run, "xray.json"), b, 0o600); err != nil {
-		return err
-	}
-	if a.xr.Running() {
-		if err := a.xr.Validate(); err != nil {
-			return fmt.Errorf("config rejected by Xray: %w", err)
-		}
-		a.xr.Stop()
-	}
-	a.xrayHash = h
-	return a.xr.Start()
 }
 
 func (a *App) missingRuleSets(s state.Settings) []string {
@@ -810,7 +800,7 @@ func (a *App) missingRuleSets(s state.Settings) []string {
 
 // EnsureRuleSets downloads the rule-sets the settings now ask for and do
 // not have yet, so turning on an option takes effect right away instead of
-// at the next weekly update.
+// at the next daily update.
 func (a *App) EnsureRuleSets(ctx context.Context) error {
 	missing := a.missingRuleSets(a.Store.View().Settings)
 	if len(missing) == 0 {

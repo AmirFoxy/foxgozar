@@ -14,12 +14,15 @@ const XrayBasePort = 21000
 // XrayPorts gives every Xray node a local port. It follows the order nodes
 // were added in, not their delays, so measurements never move ports and
 // never force a restart of Xray.
-func XrayPorts(nodes []state.Node) map[string]int {
+func XrayPorts(nodes []state.Node, base int) map[string]int {
+	if base == 0 {
+		base = XrayBasePort
+	}
 	ports := map[string]int{}
 	i := 0
 	for _, n := range nodes {
 		if n.Core == "xray" {
-			ports[n.ID] = XrayBasePort + i
+			ports[n.ID] = base + i
 			i++
 		}
 	}
@@ -39,8 +42,8 @@ func HasXray(nodes []state.Node) bool {
 // that node's outbound. Everything Xray sends carries RoutingMark, and its
 // own DNS lookups (for server names) go out directly, so Xray never depends
 // on the tunnel it is part of.
-func BuildXray(st state.State) ([]byte, error) {
-	ports := XrayPorts(st.Nodes)
+func BuildXray(st state.State, base int) ([]byte, error) {
+	ports := XrayPorts(st.Nodes, base)
 	if len(ports) == 0 {
 		return nil, fmt.Errorf("no Xray nodes")
 	}

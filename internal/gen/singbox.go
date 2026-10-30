@@ -29,6 +29,10 @@ const (
 )
 
 type Env struct {
+	// Ports of this core instance. Two instances can run side by side while
+	// one replaces the other, so these come from the caller, not Settings.
+	TProxyPort, DNSPort, ClashPort, XrayBase int
+
 	RuleDir   string // where the .srs files live
 	CacheFile string
 	Secret    string // Clash API secret
@@ -79,7 +83,7 @@ func Build(st state.State, env Env) ([]byte, error) {
 
 	var outbounds, endpoints []any
 	tags := make([]any, 0, len(nodes))
-	xrayPorts := XrayPorts(st.Nodes)
+	xrayPorts := XrayPorts(st.Nodes, env.XrayBase)
 	for _, n := range nodes {
 		if n.Core == "xray" {
 			outbounds = append(outbounds, xraySocks(n.ID, xrayPorts[n.ID]))
@@ -213,11 +217,13 @@ func Build(st state.State, env Env) ([]byte, error) {
 		listen = "::"
 	}
 	inbounds := []any{
-		map[string]any{"type": "tproxy", "tag": "tproxy-in", "listen": listen, "listen_port": s.TProxyPort},
-		map[string]any{"type": "direct", "tag": "dns-in", "listen": listen, "listen_port": s.DNSPort},
+		map[string]any{"type": "tproxy", "tag": "tproxy-in", "listen": listen, "listen_port": env.TProxyPort},
+		map[string]any{"type": "direct", "tag": "dns-in", "listen": listen, "listen_port": env.DNSPort},
 	}
 	if s.MixedPort > 0 {
-		inbounds = append(inbounds, map[string]any{"type": "mixed", "tag": "mixed-in", "listen": listen, "listen_port": s.MixedPort})
+		// Shared by both instances during a swap, so the port stays the same
+		// for devices configured to use it.
+		inbounds = append(inbounds, map[string]any{"type": "mixed", "tag": "mixed-in", "listen": listen, "listen_port": s.MixedPort, "reuse_addr": true})
 	}
 
 	// ------------------------------------------------------------ route
@@ -312,7 +318,7 @@ func Build(st state.State, env Env) ([]byte, error) {
 		"route":     route,
 		"experimental": map[string]any{
 			"clash_api": map[string]any{
-				"external_controller": fmt.Sprintf("127.0.0.1:%d", s.ClashPort),
+				"external_controller": fmt.Sprintf("127.0.0.1:%d", env.ClashPort),
 				"secret":              env.Secret,
 			},
 			"cache_file": map[string]any{"enabled": true, "path": env.CacheFile, "store_fakeip": s.FakeIP},

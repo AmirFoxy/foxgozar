@@ -3,7 +3,6 @@
 package clash
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -123,31 +122,4 @@ func (c *Client) Connections(ctx context.Context) (Connections, error) {
 
 func (c *Client) CloseAll(ctx context.Context) error {
 	return c.do(ctx, http.MethodDelete, "/connections", nil, nil)
-}
-
-type Traffic struct {
-	Up   int64 `json:"up"`
-	Down int64 `json:"down"`
-}
-
-// StreamTraffic calls fn once a second with the current rate until ctx ends.
-func (c *Client) StreamTraffic(ctx context.Context, fn func(Traffic)) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Base+"/traffic", nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.Secret)
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	sc := bufio.NewScanner(resp.Body)
-	for sc.Scan() {
-		var t Traffic
-		if json.Unmarshal(sc.Bytes(), &t) == nil {
-			fn(t)
-		}
-	}
-	return sc.Err()
 }

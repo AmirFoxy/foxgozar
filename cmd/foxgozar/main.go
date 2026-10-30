@@ -74,7 +74,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | nodes | logs | config | update sing-box|xray|rules | version")
+	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | remove ID | nodes | logs | config | update sing-box|xray|rules | version")
 	os.Exit(2)
 }
 
@@ -233,6 +233,11 @@ func client(cmd string, args []string) error {
 		}
 		fmt.Printf("%d of %d nodes answered\n", ok, len(res))
 		return nil
+	case "remove":
+		if len(args) < 1 {
+			usage()
+		}
+		return call("DELETE", "/api/nodes/"+args[0], nil, nil)
 	case "select":
 		if len(args) < 1 {
 			usage()

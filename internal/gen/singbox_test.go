@@ -52,7 +52,7 @@ func TestBuild(t *testing.T) {
 	if dir == "" {
 		dir = t.TempDir()
 	}
-	b, err := Build(st, Env{RuleDir: dir, CacheFile: "cache.db", Secret: "s"})
+	b, err := Build(st, Env{RuleDir: dir, CacheFile: "cache.db", Secret: "s", TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestBuild(t *testing.T) {
 	}
 	// Changing only the selection must not change the config.
 	st.Settings.Mode, st.Settings.Selected = "manual", st.Nodes[1].ID
-	b2, _ := Build(st, Env{RuleDir: dir, CacheFile: "cache.db", Secret: "s"})
+	b2, _ := Build(st, Env{RuleDir: dir, CacheFile: "cache.db", Secret: "s", TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090})
 	if string(b) != string(b2) {
 		t.Error("selection leaked into the config")
 	}
@@ -101,14 +101,14 @@ func TestBuildXray(t *testing.T) {
 		}
 		st.Nodes = append(st.Nodes, n)
 	}
-	b, err := BuildXray(st)
+	b, err := BuildXray(st, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if out := os.Getenv("FGZ_XRAY_DUMP"); out != "" {
 		_ = os.WriteFile(out, b, 0o644)
 	}
-	sb, err := Build(st, Env{RuleDir: t.TempDir()})
+	sb, err := Build(st, Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090})
 	if err != nil {
 		t.Fatal(err)
 	}
