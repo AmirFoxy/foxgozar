@@ -57,6 +57,8 @@ var targets = map[string]target{
 	"loongarch64_generic":       {goarch: "loong64"},
 }
 
+var buildTime = time.Now().Truncate(time.Second)
+
 func main() {
 	version := flag.String("version", "6.0.0", "package version")
 	out := flag.String("out", "dist", "output directory")
@@ -129,7 +131,7 @@ func readBin(p string) []byte {
 	return b
 }
 
-func dataFiles(bin string) []file {
+func dataFiles(bin, version string) []file {
 	data := []file{
 		{"./usr/bin/foxgozar", 0o755, readBin(bin)},
 		{"./etc/init.d/foxgozar", 0o755, readText("files/foxgozar.init")},
@@ -138,7 +140,7 @@ func dataFiles(bin string) []file {
 	}
 	views, _ := filepath.Glob("files/luci/view/*.js")
 	for _, v := range views {
-		data = append(data, file{"./www/luci-static/resources/view/foxgozar/" + filepath.Base(v), 0o644, readText(v)})
+		data = append(data, file{"./www/luci-static/resources/view/foxgozar/" + filepath.Base(v), 0o644, bytes.ReplaceAll(readText(v), []byte("__FGZ_VERSION__"), []byte(version))})
 	}
 	res, _ := filepath.Glob("files/luci/res/*")
 	for _, r := range res {
@@ -170,7 +172,7 @@ exit 0
 `
 
 func ipk(arch, version, bin string) []byte {
-	data := dataFiles(bin)
+	data := dataFiles(bin, version)
 	var size int
 	for _, f := range data {
 		size += len(f.data)
@@ -201,7 +203,9 @@ func tgz(files []file) []byte {
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 	dirs := map[string]bool{}
-	mtime := time.Unix(1700000000, 0)
+	// Real build time: the web server sends it as Last-Modified, and an old date
+	// makes browsers keep a stale app.css or app.js for weeks.
+	mtime := buildTime
 	for _, f := range files {
 		// parent directories first, as opkg expects
 		parts := strings.Split(strings.TrimPrefix(f.path, "./"), "/")

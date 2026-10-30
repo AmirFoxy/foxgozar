@@ -10,6 +10,7 @@
 var RES = L.resource('foxgozar');
 var BASE = (L.env.cgi_base || '/cgi-bin') + '/foxgozar';
 var SID = L.env.sessionid;
+var VERSION = '__FGZ_VERSION__'; // filled in by the packager
 
 /* ------------------------------------------------------------ text */
 
@@ -735,7 +736,7 @@ function tick() {
 
 return view.extend({
 	load: function() {
-		document.head.appendChild(h('link', { rel: 'stylesheet', href: RES + '/app.css' }));
+		document.head.appendChild(h('link', { rel: 'stylesheet', href: RES + '/app.css?v=' + VERSION }));
 		return Promise.all([
 			api('GET', '/api/settings').catch(function() { return null; }),
 			api('GET', '/api/status').catch(function() { return null; })

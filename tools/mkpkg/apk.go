@@ -15,7 +15,7 @@ import (
 //	tar -xzf arm_cortex-a7_neon-vfpv4.tar.gz && sh mkapk.sh
 func stageAPK(dir, arch, version, bin string) {
 	var files []file
-	for _, f := range dataFiles(bin) {
+	for _, f := range dataFiles(bin, version) {
 		files = append(files, file{"./root/" + strings.TrimPrefix(f.path, "./"), f.mode, f.data})
 	}
 	scripts := map[string]string{
