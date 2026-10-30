@@ -36,7 +36,7 @@ var T = {
 		addedByYou: 'Added by you', add: 'Add servers', testAll: 'Test all', removeFailed: 'Remove failed',
 		search: 'Search servers', test: 'Test', remove: 'Remove', failedShort: 'failed',
 		noNodes: 'No servers yet', noNodesHint: 'Add share links (vless://, vmess://, trojan://, ss://, hy2:// …) or a subscription.',
-		addTitle: 'Add servers', addHint: 'Paste share links, a subscription's content, a Clash or Clash Meta config (YAML), or an Xray or sing-box JSON config.',
+		addTitle: 'Add servers', addHint: 'Paste share links, a subscription’s content, a Clash or Clash Meta config (YAML), or an Xray or sing-box JSON config.',
 		cancel: 'Cancel', added: 'Added {0} servers', skipped: '{0} lines could not be read',
 		testing: 'Testing…', tested: '{0} of {1} servers answered', removed: 'Removed {0} servers',
 		connectFirst: 'Connect first: servers are tested through the tunnel.',
@@ -224,7 +224,7 @@ var ICON = {
 	qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v1M14 20h1M18 20h3v-3"/></svg>',
 	trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
 	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
-	fox: '<svg viewBox="0 0 48 48"><path d="M6 6l12 9h12l12-9-3 18-15 18L9 24z" fill="#F59E0B"/><path d="M18 15h12l-6 8z" fill="#fff" opacity=".9"/><path d="M15 26l9 16 9-16-9 5z" fill="#fff"/><circle cx="17.5" cy="22" r="2" fill="#0E1730"/><circle cx="30.5" cy="22" r="2" fill="#0E1730"/><path d="M22 37h4l-2 3z" fill="#0E1730"/></svg>'
+	fox: '<svg viewBox="0 0 48 48"><path d="M6 6l12 9h12l12-9-3 18-15 18L9 24z" fill="#F99532"/><path d="M18 15h12l-6 8z" fill="#fff" opacity=".9"/><path d="M15 26l9 16 9-16-9 5z" fill="#fff"/><circle cx="17.5" cy="22" r="2" fill="#0E1730"/><circle cx="30.5" cy="22" r="2" fill="#0E1730"/><path d="M22 37h4l-2 3z" fill="#0E1730"/></svg>'
 };
 function icon(name) { var s = h('span', { 'aria-hidden': 'true', html: ICON[name] }); return s.firstChild; }
 
@@ -304,10 +304,9 @@ function renderHero() {
 	}
 
 	heroEl.replaceChildren.apply(heroEl, present([
-		h('div', { 'class': 'fgz-hero-top' }, [
-			h('div', { 'class': 'fgz-state' }, [h('h2', {}, title), sub ? h('p', {}, sub) : null]),
-			power
-		]),
+		h('div', { 'class': 'fgz-gate' }, [h('span', { html: GATE, style: 'display:contents' }), power]),
+		h('div', { 'class': 'fgz-info' }, present([
+		h('div', { 'class': 'fgz-state' }, [h('h2', {}, title), sub ? h('p', {}, sub) : null]),
 		h('div', { 'class': 'fgz-passage', 'aria-hidden': 'true' }, [
 			h('div', { 'class': 'fgz-end' }, [h('b', {}, t('yourNet'))]),
 			h('div', { 'class': 'fgz-mid' }, [
@@ -316,7 +315,8 @@ function renderHero() {
 			]),
 			h('div', { 'class': 'fgz-end' }, [h('b', {}, phase === 'connected' ? (st.backup ? 'WARP' : countryOf(st.current_name) || t('exit')) : t('exit'))])
 		]),
-		facts.length ? h('div', { 'class': 'fgz-facts' }, facts) : null,
+		facts.length ? h('div', { 'class': 'fgz-facts' }, facts) : null
+		])),
 		phase === 'failed' && st.message ? h('div', { 'class': 'fgz-alert', role: 'alert' }, st.message) : null,
 		S.offline ? h('div', { 'class': 'fgz-alert', role: 'alert' }, t('offline')) : null
 	]));
@@ -334,6 +334,19 @@ function countryOf(name) {
 	var m = /^([A-Za-z؀-ۿ ]{3,20}?)[-_ |]/.exec(name || '');
 	return m ? m[1] : '';
 }
+
+// The gate: a pointed Persian arch (the gozar) with an eight-pointed girih
+// star at its keystone. CSS lights it by phase; see .fgz-arch in app.css.
+var GATE = '<svg class="fgz-arch" viewBox="0 0 160 200" aria-hidden="true">' +
+	'<defs><linearGradient id="fgz-lit" x1="0" y1="1" x2="0" y2="0">' +
+	'<stop offset="0" style="stop-color:var(--fox)"/><stop offset="1" style="stop-color:var(--fox-hi)"/></linearGradient>' +
+	'<radialGradient id="fgz-glow" cx=".5" cy=".9" r=".8"><stop offset="0" style="stop-color:var(--fox);stop-opacity:.5"/>' +
+	'<stop offset="1" style="stop-color:var(--fox);stop-opacity:0"/></radialGradient></defs>' +
+	'<path class="inner" d="M22 200V104C22 68 49 43 80 26C111 43 138 68 138 104V200Z"/>' +
+	'<path class="glow" fill="url(#fgz-glow)" d="M22 200V104C22 68 49 43 80 26C111 43 138 68 138 104V200Z"/>' +
+	'<path class="outer" d="M8 200V98C8 53 43 23 80 4C117 23 152 53 152 98V200"/>' +
+	'<g class="star" transform="translate(80 62)"><rect x="-7" y="-7" width="14" height="14"/>' +
+	'<rect x="-7" y="-7" width="14" height="14" transform="rotate(45)"/></g></svg>';
 
 /* ---------- tabs */
 

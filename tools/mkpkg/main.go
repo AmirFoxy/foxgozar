@@ -11,6 +11,7 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
+	"github.com/dop251/goja/parser"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -131,6 +132,15 @@ func readBin(p string) []byte {
 	return b
 }
 
+// checkJS refuses to package a UI script that does not parse: one stray
+// quote once left the whole page blank. LuCI wraps a view in a function,
+// so it is parsed the same way.
+func checkJS(path string, src []byte) {
+	if _, err := parser.ParseFile(nil, path, "(function(){"+string(src)+"\n})", 0); err != nil {
+		fatal("%s: %v", path, err)
+	}
+}
+
 func dataFiles(bin, version string) []file {
 	data := []file{
 		{"./usr/bin/foxgozar", 0o755, readBin(bin)},
@@ -140,6 +150,7 @@ func dataFiles(bin, version string) []file {
 	}
 	views, _ := filepath.Glob("files/luci/view/*.js")
 	for _, v := range views {
+		checkJS(v, readText(v))
 		data = append(data, file{"./www/luci-static/resources/view/foxgozar/" + filepath.Base(v), 0o644, bytes.ReplaceAll(readText(v), []byte("__FGZ_VERSION__"), []byte(version))})
 	}
 	res, _ := filepath.Glob("files/luci/res/*")
