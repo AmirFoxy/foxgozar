@@ -59,15 +59,18 @@ var Games = []Game{
 	{"cs2", "Counter-Strike 2", 730, "", []Server{{"Luxembourg", "lux"}, {"Vienna", "vie"}, {"Frankfurt", "fra"}, {"Stockholm", "sto"}, {"Dubai", "dxb"}}},
 	{"lol", "League of Legends", 0, "https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Jinx_0.jpg",
 		[]Server{{"EUW", "ams"}, {"EUNE", "ams"}, {"ME", "bah"}}},
-	{"valorant", "Valorant", 0, "", []Server{{"Frankfurt", "fra"}, {"Paris", "par"}, {"Stockholm", "sto"}, {"Bahrain", "bah"}}},
+	{"valorant", "Valorant", 0, "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/9167b57d3c081d04e75abe28387d87a27bb83953-3440x1020.jpg?w=1600",
+		[]Server{{"Frankfurt", "fra"}, {"Paris", "par"}, {"Stockholm", "sto"}, {"Bahrain", "bah"}}},
 	{"bf6", "Battlefield 6", 2807960, "", []Server{{"Europe (Frankfurt)", "fra"}, {"Europe (Amsterdam)", "ams"}, {"Middle East", "bah"}}},
 	{"cod", "Call of Duty", 1938090, "", []Server{{"Europe", "fra"}, {"Middle East", "dxb"}}},
 	{"apex", "Apex Legends", 1172470, "", []Server{{"Frankfurt", "fra"}, {"Bahrain", "bah"}}},
 	{"pubg", "PUBG: Battlegrounds", 578080, "", []Server{{"Europe", "fra"}, {"Middle East", "dxb"}}},
 	{"overwatch", "Overwatch 2", 2357570, "", []Server{{"Europe", "ams"}, {"Middle East", "bah"}}},
 	{"rocket", "Rocket League", 252950, "", []Server{{"Europe", "ams"}, {"Middle East", "bah"}}},
-	{"fortnite", "Fortnite", 0, "", []Server{{"Europe", "fra"}, {"Middle East", "bah"}}},
-	{"wow", "World of Warcraft", 0, "", []Server{{"Europe", "par"}}},
+	{"fortnite", "Fortnite", 0, "https://cdn2.unrealengine.com/01-fnbr-32-00-reload-social-environment-shot12-3840x2160-3840x2160-21e8d672dcad.jpg?resize=1&w=1600",
+		[]Server{{"Europe", "fra"}, {"Middle East", "bah"}}},
+	{"wow", "World of Warcraft", 0, "https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/bltb5a24e5ab1e2cfb0/6a88e3589b942efdb6f74110/wow-thumbnail-homepage.jpg",
+		[]Server{{"Europe", "par"}}},
 }
 
 // GameResults: node -> region -> ms, -1 when the region did not answer.
