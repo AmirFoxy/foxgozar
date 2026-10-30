@@ -54,6 +54,7 @@ type App struct {
 	dev              *devStats
 	onWarp           bool // traffic is on the WARP backup
 	services         *ServiceResults
+	games            *GameResults
 }
 
 func New(p Paths, st *state.Store) *App {

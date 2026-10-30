@@ -28,6 +28,12 @@ var T = {
 		testServices: 'Test sites', testServicesHint: 'Checks which servers open YouTube, Instagram, Telegram, Google and X', share: 'Share', copy: 'Copy link', copied: 'Copied', close: 'Close',
 		scanHint: 'Scan with v2rayNG, Hiddify, Streisand or V2Box to use this server outside home.', qrTooLong: 'This link is too long for a QR code; copy it instead.',
 		testTarget: 'Test servers with', testTargetHint: 'Automatic choice only picks servers that open this site', custom: 'Other address',
+		network: 'Network', games: 'Games', trafficTitle: 'Traffic, last two minutes', download: 'Download', upload: 'Upload', peak: 'peak',
+		showTable: 'Show as table', hideTable: 'Hide table', when: 'When', secAgo: '{0} s ago', minsAgo: '{0} min ago', now: 'now',
+		mapTitle: 'Your network', mapNote: 'Line width shows each device’s speed through the tunnel. Direct devices use the router’s own way out.',
+		router: 'Router', internet: 'Internet', directPath: 'Direct, without the tunnel',
+		testGames: 'Measure', gamesNote: 'Latency through each connection to the data centres where each game runs its servers for this region. In-game ping is usually a little lower; the ranking is what matters.',
+		noGames: 'Not measured yet', noGamesHint: 'Connect, then press Measure. It takes a few seconds.', bestFor: 'Best connection:', noneAnswered: 'No connection reached these servers',
 		devices: 'Devices', newDevices: 'Devices without a setting of their own', viaTunnel: 'Through the tunnel', direct: 'Direct, without the tunnel', block: 'No internet', viaServer: 'Through {0}',
 		noDevices: 'No devices seen yet', noDevicesHint: 'Devices appear here once they connect to the router.', offlineDev: 'offline', rename: 'Rename', devName: 'Device name',
 		usageHint: 'Used through the tunnel since the router service started', directNotMeasured: 'direct traffic is not counted', server: 'Server',
@@ -80,6 +86,12 @@ var T = {
 		testServices: 'تست سایت‌ها', testServicesHint: 'بررسی می‌کند کدام سرورها یوتیوب، اینستاگرام، تلگرام، گوگل و X را باز می‌کنند', share: 'اشتراک‌گذاری', copy: 'کپی لینک', copied: 'کپی شد', close: 'بستن',
 		scanHint: 'با v2rayNG، Hiddify، Streisand یا V2Box اسکن کنید تا بیرون از خانه هم از همین سرور استفاده کنید.', qrTooLong: 'این لینک برای QR کد خیلی طولانی است؛ آن را کپی کنید.',
 		testTarget: 'تست سرورها با', testTargetHint: 'انتخاب خودکار فقط سرورهایی را برمی‌دارد که این سایت را باز می‌کنند', custom: 'آدرس دیگر',
+		network: 'شبکه', games: 'بازی‌ها', trafficTitle: 'ترافیک دو دقیقه اخیر', download: 'دریافت', upload: 'ارسال', peak: 'بیشینه',
+		showTable: 'نمایش جدول', hideTable: 'بستن جدول', when: 'زمان', secAgo: '{0} ثانیه پیش', minsAgo: '{0} دقیقه پیش', now: 'الان',
+		mapTitle: 'شبکه شما', mapNote: 'ضخامت هر خط سرعت آن دستگاه از تونل را نشان می‌دهد. دستگاه‌های مستقیم از راه خود روتر بیرون می‌روند.',
+		router: 'روتر', internet: 'اینترنت', directPath: 'مستقیم، بدون تونل',
+		testGames: 'اندازه‌گیری', gamesNote: 'تأخیر هر اتصال تا دیتاسنترهایی که هر بازی سرورهایش را برای این منطقه آن‌جا دارد. پینگ داخل بازی معمولاً کمی کمتر است؛ مقایسه اتصال‌ها مهم است.',
+		noGames: 'هنوز اندازه‌گیری نشده', noGamesHint: 'وصل شوید و «اندازه‌گیری» را بزنید. چند ثانیه طول می‌کشد.', bestFor: 'بهترین اتصال:', noneAnswered: 'هیچ اتصالی به این سرورها نرسید',
 		devices: 'دستگاه‌ها', newDevices: 'دستگاه‌هایی که تنظیم جداگانه ندارند', viaTunnel: 'از تونل', direct: 'مستقیم، بدون تونل', block: 'بدون اینترنت', viaServer: 'از طریق {0}',
 		noDevices: 'هنوز دستگاهی دیده نشده', noDevicesHint: 'دستگاه‌ها بعد از وصل شدن به روتر این‌جا نمایش داده می‌شوند.', offlineDev: 'آفلاین', rename: 'تغییر نام', devName: 'نام دستگاه',
 		usageHint: 'مصرف از تونل از زمان شروع سرویس روتر', directNotMeasured: 'ترافیک مستقیم شمرده نمی‌شود', server: 'سرور',
@@ -231,7 +243,7 @@ function icon(name) { var s = h('span', { 'aria-hidden': 'true', html: ICON[name
 /* ------------------------------------------------------------ the app */
 
 var S = {
-	tab: 'nodes', status: null, nodes: [], devices: [], subs: [], rules: [], settings: null, cores: {},
+	tab: 'nodes', status: null, nodes: [], devices: [], hist: [], games: null, showTable: false, subs: [], rules: [], settings: null, cores: {},
 	speed: { up: 0, down: 0 }, filter: '', offline: false, logSeq: 0, logLines: []
 };
 var root, heroEl, panelEl, tabsEl;
@@ -304,7 +316,7 @@ function renderHero() {
 	}
 
 	heroEl.replaceChildren.apply(heroEl, present([
-		h('div', { 'class': 'fgz-gate' }, [h('span', { html: GATE, style: 'display:contents' }), power]),
+		h('div', { 'class': 'fgz-dial' }, [h('span', { html: RINGS, style: 'display:contents' }), power]),
 		h('div', { 'class': 'fgz-info' }, present([
 		h('div', { 'class': 'fgz-state' }, [h('h2', {}, title), sub ? h('p', {}, sub) : null]),
 		h('div', { 'class': 'fgz-passage', 'aria-hidden': 'true' }, [
@@ -335,22 +347,17 @@ function countryOf(name) {
 	return m ? m[1] : '';
 }
 
-// The gate: a pointed Persian arch (the gozar) with an eight-pointed girih
-// star at its keystone. CSS lights it by phase; see .fgz-arch in app.css.
-var GATE = '<svg class="fgz-arch" viewBox="0 0 160 200" aria-hidden="true">' +
-	'<defs><linearGradient id="fgz-lit" x1="0" y1="1" x2="0" y2="0">' +
-	'<stop offset="0" style="stop-color:var(--fox)"/><stop offset="1" style="stop-color:var(--fox-hi)"/></linearGradient>' +
-	'<radialGradient id="fgz-glow" cx=".5" cy=".9" r=".8"><stop offset="0" style="stop-color:var(--fox);stop-opacity:.5"/>' +
-	'<stop offset="1" style="stop-color:var(--fox);stop-opacity:0"/></radialGradient></defs>' +
-	'<path class="inner" d="M22 200V104C22 68 49 43 80 26C111 43 138 68 138 104V200Z"/>' +
-	'<path class="glow" fill="url(#fgz-glow)" d="M22 200V104C22 68 49 43 80 26C111 43 138 68 138 104V200Z"/>' +
-	'<path class="outer" d="M8 200V98C8 53 43 23 80 4C117 23 152 53 152 98V200"/>' +
-	'<g class="star" transform="translate(80 62)"><rect x="-7" y="-7" width="14" height="14"/>' +
-	'<rect x="-7" y="-7" width="14" height="14" transform="rotate(45)"/></g></svg>';
+// Signal rings around the connect button: waves go out while connected, an
+// arc turns while connecting, red on failure. CSS drives it by phase.
+var RINGS = '<svg class="fgz-rings" viewBox="0 0 200 200" aria-hidden="true">' +
+	'<circle class="r3" cx="100" cy="100" r="96"/><circle class="r2" cx="100" cy="100" r="80"/>' +
+	'<circle class="r1" cx="100" cy="100" r="64"/>' +
+	'<circle class="wave" cx="100" cy="100" r="64"/><circle class="wave w2" cx="100" cy="100" r="64"/>' +
+	'<circle class="arc" cx="100" cy="100" r="80"/></svg>';
 
 /* ---------- tabs */
 
-var TABS = ['nodes', 'devices', 'subs', 'rules', 'settings', 'logs'];
+var TABS = ['nodes', 'network', 'devices', 'games', 'subs', 'rules', 'settings', 'logs'];
 function renderTabs() {
 	tabsEl.replaceChildren.apply(tabsEl, TABS.map(function(k) {
 		return h('button', {
@@ -367,6 +374,8 @@ function loadTab() {
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
+	case 'network': p = api('GET', '/api/devices').then(function(r) { S.devices = r; }); break;
+	case 'games': p = Promise.all([api('GET', '/api/games'), api('GET', '/api/nodes')]).then(function(r) { S.games = r[0]; S.nodes = r[1]; }); break;
 	case 'devices': p = Promise.all([api('GET', '/api/devices'), api('GET', '/api/nodes')]).then(function(r) { S.devices = r[0]; S.nodes = r[1]; }); break;
 	case 'logs': S.logSeq = 0; S.logLines = []; p = pollLogs(); break;
 	}
@@ -375,8 +384,10 @@ function loadTab() {
 }
 
 function renderPanel() {
-	var fn = { nodes: panelNodes, devices: panelDevices, subs: panelSubs, rules: panelRules, settings: panelSettings, logs: panelLogs }[S.tab];
+	var fn = { nodes: panelNodes, network: panelNetwork, games: panelGames, devices: panelDevices, subs: panelSubs, rules: panelRules, settings: panelSettings, logs: panelLogs }[S.tab];
 	panelEl.replaceChildren(fn());
+	// The charts need the panel in the page to know their width.
+	if (S.tab === 'network') { drawTraffic(); drawMap(); }
 }
 
 /* ---------- servers */
@@ -619,6 +630,257 @@ function deviceRow(d) {
 			});
 		} }, [icon('pencil')])
 	]);
+}
+
+/* ---------- network: traffic chart and map */
+
+var HIST_MAX = 120; // seconds of traffic the chart keeps
+
+function svgEl(tag, attrs, kids) {
+	var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+	for (var k in attrs) if (attrs[k] != null) el.setAttribute(k, attrs[k]);
+	[].concat(kids || []).forEach(function(c) {
+		if (c != null) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+	});
+	return el;
+}
+
+// The axis top: four clean steps of 1, 2, 2.5 or 5 times a power of ten.
+function niceTop(max) {
+	var raw = Math.max(max, 1024) / 4;
+	var exp = Math.pow(10, Math.floor(Math.log10(raw)));
+	var m = raw / exp;
+	var step = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+	return 4 * step * exp;
+}
+
+function panelNetwork() {
+	var last = S.hist[S.hist.length - 1] || { up: 0, down: 0 };
+	var peak = S.hist.reduce(function(a, p) { return { up: Math.max(a.up, p.up), down: Math.max(a.down, p.down) }; }, { up: 0, down: 0 });
+	var key = function(cls, label, now, top) {
+		return h('span', { 'class': 'fgz-key' }, [h('i', { 'class': cls }), h('span', {}, label),
+			h('b', { 'class': 'num', dir: 'ltr', id: 'fgz-now-' + cls }, rate(now)),
+			h('small', { 'class': 'num', dir: 'ltr', id: 'fgz-peak-' + cls }, t('peak') + ' ' + rate(top))]);
+	};
+	var table = h('button', { 'class': 'fgz-btn', onclick: function() { S.showTable = !S.showTable; renderPanel(); } },
+		S.showTable ? t('hideTable') : t('showTable'));
+	return h('div', {}, [
+		section(t('trafficTitle'), [
+			h('div', { 'class': 'fgz-bar' }, [key('down', t('download'), last.down, peak.down), key('up', t('upload'), last.up, peak.up),
+				h('span', { 'class': 'grow' }), table]),
+			h('div', { 'class': 'fgz-chart', id: 'fgz-chart', dir: 'ltr' }),
+			S.showTable ? trafficTable() : null
+		]),
+		section(t('mapTitle'), [h('div', { 'class': 'fgz-map', id: 'fgz-map' }), h('p', { 'class': 'fgz-note' }, t('mapNote'))])
+	]);
+}
+
+function trafficTable() {
+	var rows = S.hist.slice(-20).reverse();
+	return h('div', { 'class': 'fgz-table-wrap' }, h('table', { 'class': 'fgz-table' }, [
+		h('thead', {}, h('tr', {}, [h('th', {}, t('when')), h('th', {}, t('download')), h('th', {}, t('upload'))])),
+		h('tbody', {}, rows.map(function(p) {
+			return h('tr', {}, [h('td', {}, t('secAgo', Math.round((Date.now() - p.t) / 1000))),
+				h('td', { 'class': 'num', dir: 'ltr' }, rate(p.down)), h('td', { 'class': 'num', dir: 'ltr' }, rate(p.up))]);
+		}))
+	]));
+}
+
+// Two series, one axis (both are bytes per second): download and upload
+// over the last two minutes, 2px lines over a 10% wash, end-dots with the
+// current value, a crosshair and tooltip that list both series.
+function drawTraffic() {
+	var box = document.getElementById('fgz-chart');
+	if (!box) return;
+	var W = Math.max(box.clientWidth, 280), H = 230, padL = 64, padR = 84, padT = 14, padB = 30;
+	var data = S.hist, off = HIST_MAX - data.length;
+	var max = 0;
+	data.forEach(function(p) { max = Math.max(max, p.down, p.up); });
+	var top = niceTop(max);
+	var x = function(i) { return padL + (W - padL - padR) * (i + off) / (HIST_MAX - 1); };
+	var y = function(v) { return padT + (H - padT - padB) * (1 - v / top); };
+	var svg = svgEl('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': t('trafficTitle') });
+	for (var g = 0; g <= 4; g++) {
+		var gy = y(top * g / 4);
+		svg.appendChild(svgEl('line', { x1: padL, x2: W - padR, y1: gy, y2: gy, 'class': 'grid' }));
+		svg.appendChild(svgEl('text', { x: padL - 8, y: gy + 4, 'text-anchor': 'end', 'class': 'tick' }, g ? rate(top * g / 4) : '0'));
+	}
+	// A narrow chart keeps only its two ends; the middle label would collide.
+	[[0, t('minsAgo', 2)], W < 460 ? null : [60, t('minsAgo', 1)], [HIST_MAX - 1, t('now')]].filter(Boolean).forEach(function(l) {
+		svg.appendChild(svgEl('text', { x: padL + (W - padL - padR) * l[0] / (HIST_MAX - 1), y: H - 8,
+			'text-anchor': l[0] === 0 ? 'start' : l[0] === HIST_MAX - 1 ? 'end' : 'middle', 'class': 'tick' }, l[1]));
+	});
+	if (data.length > 1) {
+		['up', 'down'].forEach(function(s) {
+			var line = data.map(function(p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p[s]).toFixed(1); }).join('');
+			svg.appendChild(svgEl('path', { d: line + 'L' + x(data.length - 1).toFixed(1) + ' ' + y(0) + 'L' + x(0).toFixed(1) + ' ' + y(0) + 'Z', 'class': 'area ' + s }));
+			svg.appendChild(svgEl('path', { d: line, 'class': 'line ' + s }));
+		});
+		// End labels: the current values, nudged apart only by their own
+		// height so they stay beside their lines.
+		var lp = data[data.length - 1], ex = x(data.length - 1);
+		var yd = y(lp.down), yu = y(lp.up);
+		if (Math.abs(yd - yu) < 16) { if (yd <= yu) { yd -= 8; yu += 8; } else { yd += 8; yu -= 8; } }
+		[['down', lp.down, y(lp.down), yd], ['up', lp.up, y(lp.up), yu]].forEach(function(e) {
+			svg.appendChild(svgEl('circle', { cx: ex, cy: e[2], r: 4, 'class': 'dot ' + e[0] }));
+			svg.appendChild(svgEl('text', { x: ex + 10, y: e[3] + 4, 'class': 'endlabel' }, rate(e[1])));
+		});
+	}
+	var cross = svgEl('line', { y1: padT, y2: H - padB, 'class': 'cross', visibility: 'hidden' });
+	svg.appendChild(cross);
+	var hit = svgEl('rect', { x: padL, y: padT, width: W - padL - padR, height: H - padT - padB, fill: 'transparent', tabindex: 0,
+		'aria-label': t('trafficTitle') });
+	svg.appendChild(hit);
+	var tip = h('div', { 'class': 'fgz-tip', hidden: true });
+	var show = function(i) {
+		if (!data.length) return;
+		i = Math.max(0, Math.min(data.length - 1, i));
+		S.hoverIdx = i;
+		var p = data[i], cx = x(i);
+		cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+		tip.replaceChildren(
+			h('div', {}, [h('i', { 'class': 'down' }), h('b', { 'class': 'num' }, rate(p.down)), ' ' + t('download')]),
+			h('div', {}, [h('i', { 'class': 'up' }), h('b', { 'class': 'num' }, rate(p.up)), ' ' + t('upload')]),
+			h('small', {}, t('secAgo', Math.round((Date.now() - p.t) / 1000))));
+		tip.hidden = false;
+		tip.style.left = Math.min(cx + 12, W - 170) + 'px';
+	};
+	hit.addEventListener('pointermove', function(e) {
+		var r = svg.getBoundingClientRect();
+		show(Math.round((e.clientX - r.left - padL) / (W - padL - padR) * (HIST_MAX - 1)) - off);
+	});
+	hit.addEventListener('focus', function() { show(data.length - 1); });
+	hit.addEventListener('keydown', function(e) {
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); show((S.hoverIdx == null ? data.length - 1 : S.hoverIdx) + (e.key === 'ArrowLeft' ? -1 : 1)); }
+	});
+	var hide = function() { S.hoverIdx = null; cross.setAttribute('visibility', 'hidden'); tip.hidden = true; };
+	hit.addEventListener('pointerleave', hide);
+	hit.addEventListener('blur', hide);
+	box.replaceChildren(svg, tip);
+	if (S.hoverIdx != null) show(S.hoverIdx);
+	['down', 'up'].forEach(function(s) {
+		var el = document.getElementById('fgz-now-' + s);
+		if (el && data.length) el.textContent = rate(data[data.length - 1][s]);
+		var pk = document.getElementById('fgz-peak-' + s);
+		if (pk) pk.textContent = t('peak') + ' ' + rate(data.reduce(function(m, p) { return Math.max(m, p[s]); }, 0));
+	});
+}
+
+// The network as a graph: each online device, the router, the server in
+// use and the internet. A line's width is that device's speed through the
+// tunnel; direct devices take the router's own way out.
+function drawMap() {
+	var box = document.getElementById('fgz-map');
+	if (!box) return;
+	var st = S.status || {};
+	var up = st.phase === 'connected';
+	var devs = (S.devices || []).filter(function(d) { return d.online; });
+	var W = Math.max(box.clientWidth, 300), rowH = 48;
+	var H = Math.max(230, devs.length * rowH + 40);
+	var rtl = lang === 'fa';
+	var X = function(f) { return rtl ? W * (1 - f) : W * f; };
+	var mid = H / 2;
+	var xd = X(W < 520 ? 0.36 : 0.26), xr = X(0.52), xs = X(0.73), xi = X(0.92);
+	var rateOf = function(d) { return (d.rate_down || 0) + (d.rate_up || 0); };
+	var maxRate = Math.max(1, Math.max.apply(null, devs.map(rateOf).concat([0])));
+	var tunnelRate = 0, anyDirect = false;
+	devs.forEach(function(d) { if (d.policy === 'direct') anyDirect = true; else if (d.policy !== 'block') tunnelRate += rateOf(d); });
+	var width = function(r) { return (1.5 + 6 * Math.min(1, r / maxRate)).toFixed(1); };
+	var curve = function(x1, y1, x2, y2) { var c = (x1 + x2) / 2; return 'M' + x1 + ' ' + y1 + 'C' + c + ' ' + y1 + ' ' + c + ' ' + y2 + ' ' + x2 + ' ' + y2; };
+	// Coordinates are laid out per direction here, so the SVG itself stays
+	// left-to-right: text anchors then mean the same in both languages.
+	var svg = svgEl('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': t('mapTitle'), direction: 'ltr' });
+	var edge = function(d, cls, w, flowing, title) {
+		var g = svgEl('g', {}, [svgEl('title', {}, title), svgEl('path', { d: d, 'class': 'edge ' + cls, 'stroke-width': w })]);
+		if (flowing) g.appendChild(svgEl('path', { d: d, 'class': 'flow' }));
+		svg.appendChild(g);
+	};
+	if (anyDirect) {
+		var dip = 'M' + xr + ' ' + (mid + 14) + 'C' + xr + ' ' + (H - 14) + ' ' + xi + ' ' + (H - 14) + ' ' + xi + ' ' + (mid + 14);
+		edge(dip, 'direct', 1.5, false, t('directPath'));
+	}
+	edge(curve(xr, mid, xs, mid), up ? 'tunnel' : 'idle', up ? width(tunnelRate) : 1.5, up && tunnelRate > 0, t('router') + ' → ' + (st.current_name || ''));
+	edge(curve(xs, mid, xi, mid), up ? 'tunnel' : 'idle', up ? width(tunnelRate) : 1.5, up && tunnelRate > 0, t('internet'));
+	devs.forEach(function(d, i) {
+		var yy = 20 + rowH * (i + 0.5), r = rateOf(d);
+		var cls = d.policy === 'block' ? 'block' : d.policy === 'direct' ? 'direct' : up ? 'tunnel' : 'idle';
+		var title = (d.name || d.mac) + ': ' + (d.policy === 'block' ? t('block') : d.policy === 'direct' ? t('direct') : rate(r));
+		edge(curve(xd, yy, xr, mid), cls, d.policy === 'block' ? 1.5 : width(r), cls === 'tunnel' && r > 0, title);
+		svg.appendChild(svgEl('circle', { cx: xd, cy: yy, r: 5, 'class': 'node dev ' + cls }));
+		var anchor = rtl ? 'start' : 'end', tx = rtl ? xd + 12 : xd - 12;
+		var name = d.name || d.mac;
+		if (name.length > 18) name = name.slice(0, 17) + '…';
+		svg.appendChild(svgEl('text', { x: tx, y: yy + (r > 0 ? -1 : 4), 'text-anchor': anchor, 'class': 'lbl' }, name));
+		if (r > 0 && cls === 'tunnel')
+			svg.appendChild(svgEl('text', { x: tx, y: yy + 14, 'text-anchor': anchor, 'class': 'sub num', direction: 'ltr' }, rate(r)));
+		if (d.policy === 'block') {
+			var bx = (xd + xr) / 2, by = (yy + mid) / 2;
+			svg.appendChild(svgEl('path', { d: 'M' + (bx - 5) + ' ' + (by - 5) + 'l10 10m0 -10l-10 10', 'class': 'cut' }));
+		}
+	});
+	var node = function(xx, label, sub, cls) {
+		svg.appendChild(svgEl('circle', { cx: xx, cy: mid, r: 13, 'class': 'node big ' + cls }));
+		svg.appendChild(svgEl('text', { x: xx, y: mid + 32, 'text-anchor': 'middle', 'class': 'lbl' }, label));
+		if (sub) svg.appendChild(svgEl('text', { x: xx, y: mid + 48, 'text-anchor': 'middle', 'class': 'sub' }, sub));
+	};
+	var server = st.backup ? 'WARP' : (st.current_name || '');
+	if (server.length > 16) server = server.slice(0, 15) + '…';
+	node(xr, t('router'), null, 'router');
+	node(xs, up ? server : t('disconnected'), up && st.delay ? num(st.delay) + ' ms' : null, up ? 'server' : 'idle');
+	node(xi, t('internet'), null, 'net');
+	box.replaceChildren(svg);
+}
+
+/* ---------- games */
+
+var REGION_FA = { fra: 'فرانکفورت', par: 'پاریس', sto: 'استکهلم', ams: 'آمستردام', bah: 'بحرین', uae: 'امارات' };
+
+function regionName(id) {
+	if (lang === 'fa' && REGION_FA[id]) return REGION_FA[id];
+	var r = (S.games && S.games.regions || []).filter(function(x) { return x.id === id; })[0];
+	return r ? r.name : id;
+}
+
+function panelGames() {
+	var g = S.games || {};
+	var res = g.results || {};
+	var tested = Object.keys(res).length > 0;
+	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
+		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
+		btn.textContent = t('testing');
+		busy(btn, api('POST', '/api/games/test').then(function(r) { S.games = r; renderPanel(); })
+			.catch(function(e) { toast(e.message); btn.textContent = t('testGames'); }));
+	} }, t('testGames'));
+	var head = h('div', { 'class': 'fgz-bar' }, [h('p', { 'class': 'grow fgz-note', style: 'margin:0' }, t('gamesNote')), btn]);
+	if (!tested)
+		return h('div', { 'class': 'fgz-panel' }, [head, h('div', { 'class': 'fgz-empty' }, [h('b', {}, t('noGames')), t('noGamesHint')])]);
+	var names = {};
+	S.nodes.forEach(function(n) { names[n.id] = n.name; });
+	var cards = (g.games || []).map(function(game) {
+		var rows = Object.keys(res).filter(function(id) { return names[id]; }).map(function(id) {
+			var best = -1, where = '';
+			game.regions.forEach(function(r) {
+				var d = res[id][r];
+				if (d > 0 && (best < 0 || d < best)) { best = d; where = r; }
+			});
+			return { id: id, ms: best, region: where };
+		}).sort(function(a, b) { return (a.ms < 0) - (b.ms < 0) || a.ms - b.ms; });
+		var worst = Math.max.apply(null, rows.map(function(r) { return r.ms; }).concat([1]));
+		var top = rows[0] && rows[0].ms > 0 ? rows[0] : null;
+		return h('article', { 'class': 'fgz-game' }, [
+			h('h4', {}, game.name),
+			h('small', {}, game.regions.map(regionName).join(lang === 'fa' ? '، ' : ', ')),
+			top ? h('p', { 'class': 'fgz-best' }, [t('bestFor') + ' ', h('b', { dir: 'auto' }, names[top.id])]) : h('p', { 'class': 'fgz-best' }, t('noneAnswered')),
+			h('div', { 'class': 'fgz-bars' }, rows.map(function(r, i) {
+				return h('div', { 'class': 'fgz-barrow', title: names[r.id] + ': ' + (r.ms > 0 ? r.ms + ' ms, ' + regionName(r.region) : t('failedShort')) }, [
+					h('span', { 'class': 'who', dir: 'auto' }, names[r.id]),
+					h('span', { 'class': 'track' }, r.ms > 0 ? h('i', { 'class': i === 0 ? 'best' : null, style: 'width:' + Math.max(4, r.ms / worst * 100).toFixed(1) + '%' }) : null),
+					h('span', { 'class': 'val num', dir: 'ltr' }, r.ms > 0 ? num(r.ms) + ' ms' : t('failedShort'))
+				]);
+			}))
+		]);
+	});
+	return h('div', {}, [h('div', { 'class': 'fgz-panel fgz-section' }, [head]), h('div', { 'class': 'fgz-games' }, cards)]);
 }
 
 /* ---------- subscriptions */
@@ -910,6 +1172,9 @@ function streamTraffic() {
 	es = new EventSource(BASE + '/api/traffic?sid=' + encodeURIComponent(SID));
 	es.onmessage = function(e) {
 		try { S.speed = JSON.parse(e.data); } catch (x) { return; }
+		S.hist.push({ t: Date.now(), up: S.speed.up, down: S.speed.down });
+		if (S.hist.length > HIST_MAX) S.hist.shift();
+		if (S.tab === 'network') drawTraffic();
 		var el = document.getElementById('fgz-speed');
 		if (el) el.replaceChildren.apply(el, speedKids());
 		var up = document.getElementById('fgz-uptime');
@@ -924,6 +1189,8 @@ function tick() {
 	if (S.tab === 'logs') pollLogs();
 	if (S.tab === 'settings' && S.settings && S.settings.warp_backup)
 		api('GET', '/api/warp').then(function(r) { S.warp = r; var el = document.getElementById('fgz-warp'); if (el) el.replaceChildren.apply(el, warpLine()); }).catch(function() {});
+	if (S.tab === 'network')
+		api('GET', '/api/devices').then(function(r) { S.devices = r; drawMap(); }).catch(function() {});
 	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))
 		api('GET', '/api/devices').then(function(r) { S.devices = r; renderPanel(); }).catch(function() {});
 }
@@ -949,6 +1216,7 @@ return view.extend({
 		streamTraffic();
 		setInterval(tick, 2000);
 		document.addEventListener('visibilitychange', tick);
+		window.addEventListener('resize', function() { if (S.tab === 'network') { drawTraffic(); drawMap(); } });
 		return root;
 	},
 

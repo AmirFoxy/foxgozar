@@ -62,6 +62,8 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/test", s.testAll)
 	h("POST /api/test/{id}", s.testOne)
 	h("GET /api/services", s.servicesLast)
+	h("GET /api/games", s.gamesLast)
+	h("POST /api/games/test", s.gamesTest)
 	h("POST /api/services/test", s.servicesTest)
 	h("GET /api/nodes/{id}/share", s.share)
 
@@ -770,4 +772,12 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]string{"link": n.Link}, nil // the link alone still helps
 	}
 	return map[string]string{"link": n.Link, "svg": svg}, nil
+}
+
+func (s *Server) gamesLast(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.LastGames(), nil
+}
+
+func (s *Server) gamesTest(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.TestGames(r.Context())
 }

@@ -35,7 +35,11 @@
 	--ink-2: #474c61;    /* oklch(0.420 0.035 275) */
 	--ink-3: #666b7e;    /* oklch(0.530 0.030 275) */
 	--fox: #f99532;      /* oklch(0.760 0.160 60) */
-	--fox-hi: #ffc46b;   /* the lit top of the gate */
+	--fox-hi: #ffc46b;   /* a lighter fox, for highlights */
+	/* Chart series, inside the OKLCH lightness band for marks (0.43-0.77)
+	   and checked with the dataviz palette validator. */
+	--s-down: #e77412;   /* oklch(0.680 0.170 52) */
+	--s-up: #276ed2;     /* oklch(0.550 0.170 258) */
 	--fox-ink: #361900;  /* text on --fox */
 	--fox-text: #a64b00; /* fox as text on light */
 	--fox-soft: #ffebd2;
@@ -74,6 +78,8 @@
 	--ink-3: #999db5;
 	--fox: #fe9d41;      /* oklch(0.780 0.155 60) */
 	--fox-hi: #ffd08a;
+	--s-down: #dc701c;   /* oklch(0.660 0.160 52), dark band 0.48-0.67 */
+	--s-up: #4087de;     /* oklch(0.620 0.150 255) */
 	--fox-text: #ffa54b;
 	--fox-soft: #4f2b08;
 	--ok: #61da92;       /* oklch(0.800 0.150 155) */
@@ -141,13 +147,13 @@
 }
 .fgz-chip:hover { border-color: var(--ink-3); color: var(--ink); }
 
-/* ------------------------------------------------------------ the gate (hero)
- * A pointed Persian arch - the gozar, the passage - with the connect button
- * inside. It is the one place the design spends its boldness: lit amber
- * when connected, drawing itself while connecting, crimson on failure.
+/* ------------------------------------------------------------ the dial (hero)
+ * Signal rings around the connect button: the one place the design spends
+ * its boldness. Waves go out while connected, an arc turns while
+ * connecting, the rings go crimson on failure.
  */
 .fgz-hero {
-	--gate-x: 16%;
+	--dial-x: 14%;
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
 	gap: 8px 32px;
@@ -159,42 +165,49 @@
 	box-shadow: var(--shadow);
 	transition: background 0.6s;
 }
-.fgz[dir="rtl"] .fgz-hero { --gate-x: 84%; }
+.fgz[dir="rtl"] .fgz-hero { --dial-x: 86%; }
 .fgz[data-phase="connected"] .fgz-hero {
 	background:
-		radial-gradient(70% 120% at var(--gate-x) 100%, color-mix(in srgb, var(--fox) 14%, var(--surface)), var(--surface) 70%);
+		radial-gradient(60% 140% at var(--dial-x) 50%, color-mix(in srgb, var(--fox) 13%, var(--surface)), var(--surface) 70%);
 }
 
-.fgz-gate {
+.fgz-dial {
 	position: relative;
-	width: 170px;
-	aspect-ratio: 160 / 200;
+	width: 176px;
+	aspect-ratio: 1;
 	display: grid;
-	place-items: end center;
-	padding-block-end: 30px;
+	place-items: center;
 }
-.fgz-arch { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.fgz-arch .inner { fill: var(--sunken); transition: fill 0.4s; }
-.fgz-arch .glow { opacity: 0; transition: opacity 0.6s; }
-.fgz-arch .outer {
-	fill: none;
-	stroke: var(--line);
+.fgz-rings { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fgz-rings circle { fill: none; stroke: var(--line); stroke-width: 1.5; transition: stroke 0.4s, opacity 0.4s; }
+.fgz-rings .r2 { opacity: 0.7; }
+.fgz-rings .r3 { opacity: 0.4; }
+.fgz-rings .wave, .fgz-rings .arc { opacity: 0; }
+.fgz-rings .wave { transform-box: fill-box; transform-origin: center; stroke-width: 2; }
+.fgz[data-phase="connected"] .fgz-rings circle { stroke: var(--fox); }
+.fgz[data-phase="connected"] .fgz-rings .r1 { opacity: 0.55; }
+.fgz[data-phase="connected"] .fgz-rings .r2 { opacity: 0.3; }
+.fgz[data-phase="connected"] .fgz-rings .r3 { opacity: 0.15; }
+.fgz[data-phase="connected"] .fgz-rings .wave { animation: fgz-wave 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+.fgz[data-phase="connected"] .fgz-rings .w2 { animation-delay: -1.6s; }
+@keyframes fgz-wave {
+	from { transform: scale(1); opacity: 0.7; }
+	to { transform: scale(1.5); opacity: 0; }
+}
+.fgz[data-phase="starting"] .fgz-rings .arc,
+.fgz[data-phase="installing"] .fgz-rings .arc {
+	opacity: 1;
+	stroke: var(--fox);
 	stroke-width: 3;
 	stroke-linecap: round;
-	transition: stroke 0.4s;
+	stroke-dasharray: 90 413;
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: fgz-spin 1.2s linear infinite;
 }
-.fgz-arch .star { fill: var(--line); transition: fill 0.4s; }
-.fgz[data-phase="connected"] .fgz-arch .outer { stroke: url(#fgz-lit); }
-.fgz[data-phase="connected"] .fgz-arch .glow { opacity: 1; }
-.fgz[data-phase="connected"] .fgz-arch .star { fill: var(--fox-hi); }
-.fgz[data-phase="starting"] .fgz-arch .outer,
-.fgz[data-phase="installing"] .fgz-arch .outer {
-	stroke: var(--fox);
-	stroke-dasharray: 60 420;
-	animation: fgz-draw 1.4s linear infinite;
-}
-.fgz[data-phase="failed"] .fgz-arch .outer { stroke: var(--bad); }
-@keyframes fgz-draw { to { stroke-dashoffset: -480; } }
+@keyframes fgz-spin { to { transform: rotate(360deg); } }
+.fgz[data-phase="failed"] .fgz-rings circle { stroke: var(--bad); }
+
 
 .fgz-power {
 	position: relative;
@@ -629,11 +642,11 @@
 /* ------------------------------------------------------------ small screens */
 @media (max-width: 720px) {
 	.fgz { padding: 14px; border-radius: 0; font-size: 15px; }
-	.fgz-hero { grid-template-columns: 1fr; padding: 20px 18px; justify-items: center; text-align: center; --gate-x: 50%; }
-	.fgz[dir="rtl"] .fgz-hero { --gate-x: 50%; }
+	.fgz-hero { grid-template-columns: 1fr; padding: 20px 18px; justify-items: center; text-align: center; --dial-x: 50%; }
+	.fgz[dir="rtl"] .fgz-hero { --dial-x: 50%; }
 	.fgz-info { width: 100%; }
 	.fgz-state p { margin-inline: auto; }
-	.fgz-gate { width: 140px; padding-block-end: 22px; }
+	.fgz-dial { width: 150px; }
 	.fgz-power { width: 72px; height: 72px; }
 	.fgz-state h2 { font-size: 28px; }
 	.fgz-facts { justify-content: center; text-align: start; }
@@ -656,4 +669,105 @@
 @media (prefers-reduced-motion: reduce) {
 	.fgz *, .fgz *::before, .fgz *::after { animation: none !important; transition: none !important; }
 	.fgz[data-phase="connected"] .fgz-track i { opacity: 0; }
+}
+
+/* ------------------------------------------------------------ charts
+ * Marks: 2px lines over a 10% wash, end-dots with a 2px surface ring,
+ * hairline solid grid, text in text tokens (never the series colour).
+ */
+.fgz-key { display: inline-flex; align-items: baseline; gap: 6px; margin-inline-end: 18px; color: var(--ink-2); font-size: 14px; }
+.fgz-key i, .fgz-tip i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; align-self: center; }
+.fgz-key i.down, .fgz-tip i.down { background: var(--s-down); }
+.fgz-key i.up, .fgz-tip i.up { background: var(--s-up); }
+.fgz-key b { color: var(--ink); font-size: 16px; }
+.fgz-key small { color: var(--ink-3); font-size: 12px; }
+
+.fgz-chart { position: relative; padding: 8px 6px 4px; }
+.fgz-chart svg { display: block; width: 100%; height: auto; overflow: visible; font-family: inherit; }
+.fgz-chart .grid { stroke: var(--line); stroke-width: 1; }
+.fgz-chart .tick { fill: var(--ink-3); font-size: 12px; font-feature-settings: "tnum" 1; }
+.fgz-chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fgz-chart .line.down { stroke: var(--s-down); }
+.fgz-chart .line.up { stroke: var(--s-up); }
+.fgz-chart .area { stroke: none; opacity: 0.1; }
+.fgz-chart .area.down { fill: var(--s-down); }
+.fgz-chart .area.up { fill: var(--s-up); }
+.fgz-chart .dot { stroke: var(--surface); stroke-width: 2; }
+.fgz-chart .dot.down { fill: var(--s-down); }
+.fgz-chart .dot.up { fill: var(--s-up); }
+.fgz-chart .endlabel { fill: var(--ink-2); font-size: 12px; font-weight: 600; font-feature-settings: "tnum" 1; }
+.fgz-chart .cross { stroke: var(--ink-3); stroke-width: 1; }
+.fgz-tip {
+	position: absolute;
+	top: 12px;
+	min-width: 150px;
+	padding: 8px 12px;
+	border-radius: var(--r-s);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow: var(--shadow);
+	font-size: 13px;
+	pointer-events: none;
+	color: var(--ink-2);
+}
+.fgz-tip div { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.fgz-tip b { color: var(--ink); font-size: 14px; }
+.fgz-tip small { color: var(--ink-3); font-size: 12px; }
+
+.fgz-table-wrap { padding: 0 18px 14px; overflow-x: auto; }
+.fgz-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fgz-table th { text-align: start; color: var(--ink-3); font-weight: 600; font-size: 13px; padding: 6px 8px; border-block-end: 1px solid var(--line); }
+.fgz-table td { padding: 6px 8px; border-block-end: 1px solid var(--line); }
+.fgz-note { color: var(--ink-3); font-size: 13px; margin: 0; padding: 4px 18px 14px; max-width: 80ch; }
+
+/* the network map */
+.fgz-map { padding: 10px 6px 0; }
+.fgz-map svg { display: block; width: 100%; height: auto; overflow: visible; font-family: inherit; }
+.fgz-map .edge { fill: none; stroke-linecap: round; }
+.fgz-map .edge.tunnel { stroke: var(--fox); opacity: 0.85; }
+.fgz-map .edge.direct { stroke: var(--ink-3); opacity: 0.6; }
+.fgz-map .edge.idle { stroke: var(--line); }
+.fgz-map .edge.block { stroke: var(--bad); opacity: 0.6; }
+.fgz-map .flow { fill: none; stroke: var(--fox-hi); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 12; animation: fgz-flowdash 1s linear infinite; }
+[dir="rtl"] .fgz-map .flow { animation-direction: reverse; }
+@keyframes fgz-flowdash { to { stroke-dashoffset: -14; } }
+.fgz-map .cut { stroke: var(--bad); stroke-width: 2.5; stroke-linecap: round; }
+.fgz-map .node { stroke: var(--surface); stroke-width: 2; }
+.fgz-map .node.dev.tunnel { fill: var(--fox); }
+.fgz-map .node.dev.direct { fill: var(--ink-3); }
+.fgz-map .node.dev.block { fill: var(--bad); }
+.fgz-map .node.dev.idle { fill: var(--ink-3); }
+.fgz-map .node.big { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2.5; }
+.fgz-map .node.big.server { stroke: var(--fox); fill: color-mix(in srgb, var(--fox) 18%, var(--surface)); }
+.fgz-map .node.big.idle { stroke: var(--line); }
+.fgz-map .lbl { fill: var(--ink); font-size: 13px; font-weight: 600; text-transform: none; }
+.fgz-map .sub { fill: var(--ink-3); font-size: 12px; }
+
+/* games */
+.fgz-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.fgz-game {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--r-m);
+	padding: 16px 18px;
+	box-shadow: var(--shadow);
+}
+.fgz-game h4 { margin: 0; font-size: 17px; font-weight: 800; }
+.fgz-game > small { color: var(--ink-3); font-size: 13px; }
+.fgz-best { margin: 10px 0 8px; font-size: 14px; color: var(--ink-2); }
+.fgz-best b { color: var(--ink); }
+.fgz-bars { display: grid; gap: 8px; }
+.fgz-barrow { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.fgz-barrow .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.fgz-barrow .track { height: 8px; background: var(--sunken); border-radius: 8px; overflow: hidden; }
+.fgz-barrow .track i { display: block; height: 100%; background: var(--ink-3); border-radius: 0 4px 4px 0; }
+[dir="rtl"] .fgz-barrow .track i { border-radius: 4px 0 0 4px; margin-inline-start: 0; }
+.fgz-barrow .track i.best { background: var(--fox); }
+.fgz-barrow .val { color: var(--ink); font-weight: 700; min-width: 4.5em; text-align: end; }
+@media (max-width: 720px) {
+	.fgz-games { grid-template-columns: 1fr; }
+	.fgz-key { margin-inline-end: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.fgz-map .flow { animation: none; display: none; }
 }
