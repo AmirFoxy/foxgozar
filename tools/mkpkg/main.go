@@ -89,6 +89,7 @@ func main() {
 		name := fmt.Sprintf("zirgozar_%s_%s.ipk", *version, arch)
 		must(os.WriteFile(filepath.Join(*out, name), ipk(arch, *version, bin), 0o644))
 		fmt.Println(name)
+		stageAPK(filepath.Join(*out, "apk", arch), arch, *version, bin)
 	}
 }
 
@@ -122,7 +123,7 @@ func read(p string) []byte {
 	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 }
 
-func ipk(arch, version, bin string) []byte {
+func dataFiles(bin string) []file {
 	data := []file{
 		{"./usr/bin/zgzd", 0o755, read(bin)},
 		{"./etc/init.d/zirgozar", 0o755, read("files/zirgozar.init")},
@@ -133,6 +134,38 @@ func ipk(arch, version, bin string) []byte {
 	for _, v := range views {
 		data = append(data, file{"./www/luci-static/resources/view/zirgozar/" + filepath.Base(v), 0o644, read(v)})
 	}
+	return data
+}
+
+// The old shell-based Zirgozar is stopped first: two tproxy setups at once
+// leave the network unusable. IPKG_INSTROOT is set only in image builds.
+const preinst = `#!/bin/sh
+[ -n "$IPKG_INSTROOT" ] && exit 0
+if [ -x /etc/init.d/zirgozar ] && ! [ -x /usr/bin/zgzd ]; then
+	/etc/init.d/zirgozar stop >/dev/null 2>&1
+	/etc/init.d/zirgozar disable >/dev/null 2>&1
+fi
+exit 0
+`
+
+const postinst = `#!/bin/sh
+[ -n "$IPKG_INSTROOT" ] && exit 0
+/etc/init.d/zirgozar enable
+/etc/init.d/zirgozar restart
+rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache 2>/dev/null
+/etc/init.d/rpcd reload 2>/dev/null
+exit 0
+`
+
+const prerm = `#!/bin/sh
+[ -n "$IPKG_INSTROOT" ] && exit 0
+/etc/init.d/zirgozar stop
+/etc/init.d/zirgozar disable
+exit 0
+`
+
+func ipk(arch, version, bin string) []byte {
+	data := dataFiles(bin)
 	var size int
 	for _, f := range data {
 		size += len(f.data)
@@ -149,30 +182,6 @@ Architecture: %s
 Installed-Size: %d
 Description: Zirgozar - fast transparent proxy for OpenWrt (sing-box core)
 `, version, arch, size)
-	// The old shell-based Zirgozar is stopped and its rules cleared first:
-	// two tproxy setups at once leave the network unusable.
-	preinst := `#!/bin/sh
-[ -n "$IPKG_INSTROOT" ] && exit 0
-if [ -x /etc/init.d/zirgozar ] && ! [ -x /usr/bin/zgzd ]; then
-	/etc/init.d/zirgozar stop >/dev/null 2>&1
-	/etc/init.d/zirgozar disable >/dev/null 2>&1
-fi
-exit 0
-`
-	postinst := `#!/bin/sh
-[ -n "$IPKG_INSTROOT" ] && exit 0
-/etc/init.d/zirgozar enable
-/etc/init.d/zirgozar restart
-rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache 2>/dev/null
-/etc/init.d/rpcd reload 2>/dev/null
-exit 0
-`
-	prerm := `#!/bin/sh
-[ -n "$IPKG_INSTROOT" ] && exit 0
-/etc/init.d/zirgozar stop
-/etc/init.d/zirgozar disable
-exit 0
-`
 	ctl := tgz([]file{
 		{"./control", 0o644, []byte(control)},
 		{"./preinst", 0o755, []byte(preinst)},
