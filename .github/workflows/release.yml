@@ -1,0 +1,37 @@
+# Push a tag like v6.14.0 and this builds .apk and .ipk for every
+# architecture and attaches them to a GitHub release of that version.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./... && go test ./...
+      - name: Build packages
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_REF_TYPE" = tag ] || v="0.0.0-dev"
+          go run ./tools/mkpkg -version "$v" -out dist
+          rm -f dist/foxgozar-*   # the raw binaries; the packages carry them
+          (cd dist && sha256sum *.apk *.ipk > SHA256SUMS)
+      - if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "FoxGozar $GITHUB_REF_NAME" --notes "Install: copy the .apk for your router's architecture (apk --print-arch) and run: apk add --allow-untrusted foxgozar_*.apk"
+      - if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/
