@@ -35,7 +35,8 @@ var T = {
 		servers: '{0} servers', expires: 'Expires in {0} days', expired: 'Expired', lastUpdate: 'Updated {0}',
 		every: 'Every {0} hours', of: '{0} of {1}',
 		iranDirect: 'Iranian sites go direct', iranDirectHint: 'Faster, and does not use your server’s traffic',
-		blockAds: 'Block ads', blockAdsHint: 'Blocks known ad and tracker domains for every device',
+		blockAds: 'Block ads', blockAdsHint: 'Ad and tracker domains, Persian and foreign, for every device. Ads inside YouTube videos come from the same servers as the videos, so no router can block them; use uBlock Origin in the browser, or ReVanced or SmartTube on Android.',
+		blockMalware: 'Block malware and phishing', blockMalwareHint: 'Known malware, phishing and crypto-mining addresses',
 		quicBlock: 'Block QUIC', quicBlockHint: 'Makes video and browsers use TCP; helps on some servers',
 		customRules: 'Your rules', addRule: 'Add rule', rulePlaceholder: 'Domains or IP ranges, separated by commas',
 		toDirect: 'Direct', toProxy: 'Through the tunnel', toBlock: 'Block', save: 'Save', saved: 'Saved',
@@ -77,7 +78,8 @@ var T = {
 		servers: '{0} سرور', expires: '{0} روز مانده', expired: 'منقضی شده', lastUpdate: 'به‌روزرسانی {0}',
 		every: 'هر {0} ساعت', of: '{0} از {1}',
 		iranDirect: 'سایت‌های ایرانی مستقیم', iranDirectHint: 'سریع‌تر است و از حجم سرور شما کم نمی‌کند',
-		blockAds: 'مسدودسازی تبلیغات', blockAdsHint: 'دامنه‌های تبلیغاتی و ردیاب برای همه دستگاه‌ها بسته می‌شوند',
+		blockAds: 'مسدودسازی تبلیغات', blockAdsHint: 'دامنه‌های تبلیغاتی و ردیاب ایرانی و خارجی، برای همه دستگاه‌ها. تبلیغ‌های داخل ویدیوهای یوتیوب از همان سرورهای خود ویدیو می‌آیند و هیچ روتری نمی‌تواند جلویشان را بگیرد؛ برای آن‌ها در مرورگر uBlock Origin و در اندروید ReVanced یا SmartTube را استفاده کنید.',
+		blockMalware: 'مسدودسازی بدافزار و فیشینگ', blockMalwareHint: 'آدرس‌های شناخته‌شده بدافزار، فیشینگ و استخراج رمزارز',
 		quicBlock: 'بستن QUIC', quicBlockHint: 'ویدیو و مرورگر از TCP استفاده می‌کنند؛ روی بعضی سرورها بهتر است',
 		customRules: 'قوانین شما', addRule: 'افزودن قانون', rulePlaceholder: 'دامنه یا رنج IP، با کاما جدا کنید',
 		toDirect: 'مستقیم', toProxy: 'از تونل', toBlock: 'مسدود', save: 'ذخیره', saved: 'ذخیره شد',
@@ -522,6 +524,7 @@ function panelRules() {
 	var toggles = h('div', { 'class': 'fgz-panel fgz-section' }, [
 		switchField('iran_direct', t('iranDirect'), t('iranDirectHint')),
 		switchField('block_ads', t('blockAds'), t('blockAdsHint')),
+		switchField('block_malware', t('blockMalware'), t('blockMalwareHint')),
 		switchField('quic_block', t('quicBlock'), t('quicBlockHint'))
 	]);
 

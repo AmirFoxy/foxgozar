@@ -157,9 +157,9 @@ func (a *App) Start(ctx context.Context) error {
 			a.Log.Add("foxgozar", "could not download Xray: "+err.Error())
 		}
 	}
-	if st.Settings.IranDirect && ruleset.Age(a.RuleDir(), gen.RSIranIP) > 1<<61 {
-		a.setPhase(Installing, "downloading Iran rule-sets")
-		if _, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), a.wantedRuleSets(st.Settings)); err != nil {
+	if missing := a.missingRuleSets(st.Settings); len(missing) > 0 {
+		a.setPhase(Installing, "downloading rule-sets")
+		if _, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), missing); err != nil {
 			// Not fatal: .ir domains still go direct, the rest waits for later.
 			a.Log.Add("foxgozar", "rule-sets: "+err.Error())
 		}
@@ -409,6 +409,9 @@ func (a *App) wantedRuleSets(s state.Settings) []string {
 	tags := []string{gen.RSIranIP, gen.RSIranSite}
 	if s.BlockAds {
 		tags = append(tags, gen.RSAds)
+	}
+	if s.BlockMalware {
+		tags = append(tags, gen.RSMalwareIP, gen.RSPhishingIP, gen.RSMiners)
 	}
 	return tags
 }
@@ -790,4 +793,26 @@ func (a *App) syncXrayLocked(st state.State) error {
 	}
 	a.xrayHash = h
 	return a.xr.Start()
+}
+
+func (a *App) missingRuleSets(s state.Settings) []string {
+	var out []string
+	for _, tag := range a.wantedRuleSets(s) {
+		if ruleset.Age(a.RuleDir(), tag) > 1<<61 {
+			out = append(out, tag)
+		}
+	}
+	return out
+}
+
+// EnsureRuleSets downloads the rule-sets the settings now ask for and do
+// not have yet, so turning on an option takes effect right away instead of
+// at the next weekly update.
+func (a *App) EnsureRuleSets(ctx context.Context) error {
+	missing := a.missingRuleSets(a.Store.View().Settings)
+	if len(missing) == 0 {
+		return nil
+	}
+	_, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), missing)
+	return err
 }

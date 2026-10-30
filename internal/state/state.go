@@ -91,7 +91,9 @@ type Settings struct {
 
 	IranDirect bool `json:"iran_direct"`
 	BlockAds   bool `json:"block_ads"`
-	QUICBlock  bool `json:"quic_block"` // reject UDP/443 so browsers fall back to TCP
+	// Known malware, phishing and crypto-mining destinations.
+	BlockMalware bool `json:"block_malware"`
+	QUICBlock    bool `json:"quic_block"` // reject UDP/443 so browsers fall back to TCP
 
 	RemoteDNS string `json:"remote_dns"`
 	DirectDNS string `json:"direct_dns"`

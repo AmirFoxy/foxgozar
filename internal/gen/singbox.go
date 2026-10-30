@@ -41,7 +41,10 @@ var (
 	RSIranSite   = "geosite-category-ir"
 	RSAds        = "geosite-category-ads-all"
 	RSPrivateIP  = "geoip-private"
-	KnownRuleSet = []string{RSIranIP, RSIranSite, RSAds, RSPrivateIP}
+	RSMalwareIP  = "geoip-malware"
+	RSPhishingIP = "geoip-phishing"
+	RSMiners     = "geosite-cryptominers"
+	KnownRuleSet = []string{RSIranIP, RSIranSite, RSAds, RSPrivateIP, RSMalwareIP, RSPhishingIP, RSMiners}
 )
 
 func (e Env) has(tag string) bool {
@@ -181,6 +184,9 @@ func Build(st state.State, env Env) ([]byte, error) {
 	if s.BlockAds && useRS(RSAds) {
 		dnsRules = append(dnsRules, map[string]any{"rule_set": []any{RSAds}, "action": "predefined", "rcode": "NXDOMAIN"})
 	}
+	if s.BlockMalware && useRS(RSMiners) {
+		dnsRules = append(dnsRules, map[string]any{"rule_set": []any{RSMiners}, "action": "predefined", "rcode": "NXDOMAIN"})
+	}
 	if s.IranDirect {
 		r := map[string]any{"domain_suffix": []any{"ir"}, "server": "dns-direct"}
 		dnsRules = append(dnsRules, r)
@@ -226,6 +232,17 @@ func Build(st state.State, env Env) ([]byte, error) {
 	}
 	if s.BlockAds && useRS(RSAds) {
 		rules = append(rules, map[string]any{"rule_set": []any{RSAds}, "action": "reject"})
+	}
+	if s.BlockMalware {
+		var rs []any
+		for _, tag := range []string{RSMalwareIP, RSPhishingIP, RSMiners} {
+			if useRS(tag) {
+				rs = append(rs, tag)
+			}
+		}
+		if len(rs) > 0 {
+			rules = append(rules, map[string]any{"rule_set": rs, "action": "reject"})
+		}
 	}
 	// User rules come before the Iran rule so a user can send an Iranian
 	// site through the tunnel if they want.

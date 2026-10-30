@@ -255,6 +255,10 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) (any, error
 	if err := s.App.Store.Update(func(st *state.State) error { st.Settings = next; return nil }); err != nil {
 		return nil, err
 	}
+	if err := s.App.EnsureRuleSets(context.Background()); err != nil {
+		// The setting is saved; it starts working once the download succeeds.
+		s.App.Log.Add("foxgozar", "rule-sets: "+err.Error())
+	}
 	return next, s.App.Apply(context.Background())
 }
 

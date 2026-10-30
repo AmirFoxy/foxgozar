@@ -56,7 +56,26 @@
 }
 
 .fgz *, .fgz *::before, .fgz *::after { box-sizing: border-box; }
-.fgz button, .fgz input, .fgz select, .fgz textarea { font: inherit; color: inherit; }
+
+/* LuCI themes style bare h2, label, input, select, small ...; inside FoxGozar
+   our own type scale and colors win. */
+.fgz h1, .fgz h2, .fgz h3, .fgz p, .fgz label, .fgz small {
+	font-family: inherit;
+	color: inherit;
+	letter-spacing: normal;
+	text-transform: none;
+}
+.fgz label { font-size: inherit; line-height: inherit; }
+.fgz small { font-size: 13px; }
+.fgz button, .fgz input, .fgz select, .fgz textarea {
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	color: inherit;
+	box-shadow: none;
+}
+.fgz input:not([type="checkbox"]), .fgz textarea { height: auto; }
+.fgz select { height: 38px; }
 .fgz :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .fgz .num { font-variant-numeric: tabular-nums; }
 .fgz [hidden] { display: none !important; }
@@ -342,31 +361,51 @@
 .fgz-field label { font-weight: 600; }
 .fgz-field small { display: block; color: var(--ink-3); font-weight: 400; font-size: 13px; }
 
-.fgz-switch {
+/* Slide switch. LuCI themes style input[type="checkbox"] themselves (a
+   14px box with a checkmark drawn in ::before/::after), so every rule here
+   is more specific than theirs and resets what they set. */
+.fgz input[type="checkbox"].fgz-switch {
 	appearance: none;
-	width: 44px;
+	-webkit-appearance: none;
+	display: inline-block;
+	flex: none;
+	width: 46px;
 	height: 26px;
+	padding: 0;
+	margin: 0;
+	border: 0;
 	border-radius: 999px;
 	background: var(--line);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
 	position: relative;
+	vertical-align: middle;
 	cursor: pointer;
 	justify-self: end;
 	transition: background-color 0.2s;
-	margin: 0;
 }
-.fgz-switch::after {
+.fgz input[type="checkbox"].fgz-switch::before {
+	content: none;
+	display: none;
+}
+.fgz input[type="checkbox"].fgz-switch::after,
+.fgz input[type="checkbox"].fgz-switch:checked::after {
 	content: "";
 	position: absolute;
 	top: 3px;
+	left: auto;
 	inset-inline-start: 3px;
 	width: 20px;
 	height: 20px;
 	border-radius: 50%;
 	background: #fff;
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+	-webkit-mask: none;
+	mask: none;
 	transition: inset-inline-start 0.2s;
 }
-.fgz-switch:checked { background: var(--ok); }
-.fgz-switch:checked::after { inset-inline-start: 21px; }
+.fgz input[type="checkbox"].fgz-switch:checked { background: var(--ok); }
+.fgz input[type="checkbox"].fgz-switch:checked::after { inset-inline-start: 23px; }
+.fgz input[type="checkbox"].fgz-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .fgz-section { margin-block-end: 16px; }
 .fgz-section h3 { margin: 4px 4px 8px; font-size: 16px; font-weight: 700; }
@@ -445,7 +484,7 @@
 	.fgz-state h2 { font-size: 23px; }
 	.fgz-power { width: 64px; height: 64px; }
 	.fgz-field { grid-template-columns: 1fr; }
-	.fgz-switch { justify-self: start; }
+	.fgz input[type="checkbox"].fgz-switch { justify-self: start; }
 	.fgz-rule { grid-template-columns: auto 1fr auto; }
 	.fgz-rule select { grid-column: 1 / -1; order: 5; }
 	.fgz-row { grid-template-columns: 18px minmax(0, 1fr) auto auto; gap: 8px; padding-inline: 12px; }
