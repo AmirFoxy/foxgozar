@@ -156,16 +156,31 @@ func Script(c Config) string {
 
 // KillSwitchScript blocks LAN traffic to the internet while the tunnel is
 // down. Only forwarding is blocked; the router itself stays reachable.
-func KillSwitchScript(lan []string) string {
+// Devices that never use the tunnel (direct, or not in TunnelMACs when the
+// default is direct) keep their internet: the tunnel being down is not
+// their concern.
+func KillSwitchScript(c Config) string {
+	var exempt string
+	switch {
+	case c.DefaultDirect:
+		if len(c.TunnelMACs) == 0 {
+			// No device uses the tunnel: nothing to protect.
+			return fmt.Sprintf("table inet %[1]s_ks\ndelete table inet %[1]s_ks\n", Table)
+		}
+		exempt = fmt.Sprintf("\t\tether saddr != { %s } return\n", strings.Join(c.TunnelMACs, ", "))
+	case len(c.DirectMACs) > 0:
+		exempt = fmt.Sprintf("\t\tether saddr { %s } return\n", strings.Join(c.DirectMACs, ", "))
+	}
 	return fmt.Sprintf(`table inet %[1]s_ks
 delete table inet %[1]s_ks
 table inet %[1]s_ks {
 	chain forward {
 		type filter hook forward priority filter - 5; policy accept;
-		iifname %[2]s oifname != %[2]s reject with icmpx type admin-prohibited
+		iifname != %[2]s return
+%[3]s		oifname != %[2]s reject with icmpx type admin-prohibited
 	}
 }
-`, Table, quoteList(lan))
+`, Table, quoteList(c.LANInterfaces), exempt)
 }
 
 func cleanCIDRs(in []string, v6 bool) []string {
@@ -220,9 +235,9 @@ func Down() {
 	_ = routes(false, true)
 }
 
-func KillSwitch(on bool, lan []string) error {
+func KillSwitch(on bool, c Config) error {
 	if on {
-		return run(KillSwitchScript(lan), "nft", "-f", "-")
+		return run(KillSwitchScript(c), "nft", "-f", "-")
 	}
 	_ = run("", "nft", "delete", "table", "inet", Table+"_ks")
 	return nil

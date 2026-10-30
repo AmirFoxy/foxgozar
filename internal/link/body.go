@@ -24,14 +24,15 @@ var passThrough = map[string]bool{
 // (the usual subscription format), or a sing-box JSON config.
 func ParseBody(body string) Result {
 	body = strings.TrimSpace(strings.TrimPrefix(body, "\xef\xbb\xbf"))
-	if strings.HasPrefix(body, "{") || strings.HasPrefix(body, "[") {
-		if r, ok := parseJSON(body); ok {
-			return r
-		}
+	if r, ok := parseStructured(body); ok {
+		return r
 	}
 	if !strings.Contains(body, "://") {
 		if dec, err := b64(body); err == nil {
-			body = string(dec)
+			body = strings.TrimSpace(string(dec))
+			if r, ok := parseStructured(body); ok {
+				return r
+			}
 		}
 	}
 	var r Result
@@ -128,4 +129,29 @@ func short(s string) string {
 		return s[:40] + "…"
 	}
 	return s
+}
+
+// parseStructured recognises whole-file formats: sing-box JSON, Xray JSON
+// (one config or a list), SIP008 and Clash YAML.
+func parseStructured(body string) (Result, bool) {
+	if strings.HasPrefix(body, "{") || strings.HasPrefix(body, "[") {
+		if r, ok := parseJSON(body); ok && len(r.Nodes) > 0 {
+			return r, true
+		}
+		if r, ok := parseXrayConfigs(body); ok {
+			return r, true
+		}
+		if r, ok := parseSIP008(body); ok {
+			return r, true
+		}
+		if r, ok := parseJSON(body); ok {
+			return r, true
+		}
+	}
+	if strings.Contains(body, "proxies:") {
+		if r, ok := parseClash(body); ok {
+			return r, true
+		}
+	}
+	return Result{}, false
 }

@@ -108,9 +108,13 @@ func (a *App) Fetcher() *core.Fetcher {
 
 // Boot runs once when foxgozar starts.
 func (a *App) Boot(ctx context.Context) {
+	st0 := a.Store.View()
+	s := st0.Settings
+	// The kill switch first: between the old rules going and the tunnel
+	// coming up, devices must not go out unprotected.
+	a.syncKillSwitch(st0, false)
 	// Whatever a previous foxgozar left behind points at a core that is gone.
 	fw.Down()
-	s := a.Store.View().Settings
 	if s.Enabled {
 		go func() {
 			if err := a.Start(ctx); err != nil {
@@ -118,7 +122,7 @@ func (a *App) Boot(ctx context.Context) {
 			}
 		}()
 	} else {
-		_ = fw.KillSwitch(false, nil)
+		_ = fw.KillSwitch(false, fw.Config{})
 		if s.KeepWarm {
 			go a.Warm()
 		}
@@ -135,7 +139,7 @@ func (a *App) Start(ctx context.Context) error {
 	t0 := time.Now()
 	_ = a.Store.Update(func(s *state.State) error { s.Settings.Enabled = true; return nil })
 	st := a.Store.View()
-	a.syncKillSwitch(st.Settings, false)
+	a.syncKillSwitch(st, false)
 	if len(st.Nodes) == 0 {
 		a.setPhase(Failed, "no nodes: add a config or a subscription first")
 		return errors.New("no nodes")
@@ -184,7 +188,7 @@ func (a *App) Start(ctx context.Context) error {
 		return err
 	}
 	a.applySelection(ctx, st.Settings)
-	a.syncKillSwitch(st.Settings, true)
+	a.syncKillSwitch(st, true)
 	a.setPhase(Connected, fmt.Sprintf("up in %d ms", time.Since(t0).Milliseconds()))
 	return nil
 }
@@ -266,7 +270,7 @@ func (a *App) stopLocked(full bool) {
 		a.stopSlot(a.act())
 	}
 	a.persistDelays()
-	_ = fw.KillSwitch(false, nil)
+	_ = fw.KillSwitch(false, fw.Config{})
 	a.setPhase(Stopped, "")
 }
 
@@ -292,7 +296,7 @@ func (a *App) Apply(ctx context.Context) error {
 		if a.act() != before {
 			a.Log.Add("foxgozar", "configuration applied; open connections continue on the previous instance")
 			// warmLocked already installed the rules for the new instance.
-			a.syncKillSwitch(st.Settings, true)
+			a.syncKillSwitch(st, true)
 			return nil
 		}
 		core.WaitListening(a.act().tproxy(st.Settings), 10*time.Second, a.act().sb.Running)
@@ -305,7 +309,7 @@ func (a *App) Apply(ctx context.Context) error {
 		return err
 	}
 	a.applySelection(ctx, st.Settings)
-	a.syncKillSwitch(st.Settings, true)
+	a.syncKillSwitch(st, true)
 	return nil
 }
 
@@ -372,8 +376,9 @@ func (a *App) onCoreExit(sl *slot) {
 	if !st.Settings.Enabled {
 		return // a warm core: the supervisor restarts it, nothing routes through it
 	}
+	// Kill switch on before the rules go, so not one packet slips out.
+	a.syncKillSwitch(st, false)
 	fw.Down()
-	a.syncKillSwitch(st.Settings, false)
 	a.setPhase(Starting, "sing-box stopped unexpectedly, restarting")
 	go func() {
 		if core.WaitListening(sl.tproxy(st.Settings), 60*time.Second, nil) && a.Store.View().Settings.Enabled {
@@ -385,16 +390,17 @@ func (a *App) onCoreExit(sl *slot) {
 			}
 			if err := fw.Up(a.fwConfig(st, sl)); err == nil {
 				a.applySelection(context.Background(), st.Settings)
-				a.syncKillSwitch(st.Settings, true)
+				a.syncKillSwitch(st, true)
 				a.setPhase(Connected, "recovered")
 			}
 		}
 	}()
 }
 
-func (a *App) syncKillSwitch(s state.Settings, tunnelUp bool) {
+func (a *App) syncKillSwitch(st state.State, tunnelUp bool) {
+	s := st.Settings
 	on := s.Enabled && s.KillSwitch && !tunnelUp
-	if err := fw.KillSwitch(on, s.LANInterfaces); err != nil {
+	if err := fw.KillSwitch(on, a.deviceRules(st)); err != nil {
 		a.Log.Add("foxgozar", "kill switch: "+err.Error())
 	}
 }
@@ -404,18 +410,10 @@ func (a *App) fwConfig(st state.State, sl *slot) fw.Config {
 	c := fw.Config{
 		TProxyPort: sl.tproxy(s), DNSPort: sl.dns(s), LANInterfaces: s.LANInterfaces,
 		ProxyRouter: s.ProxyRouter, IPv6: s.IPv6, CoreMark: gen.RoutingMark,
-		FakeIP: s.FakeIP, DefaultDirect: s.DefaultPolicy == "direct",
+		FakeIP: s.FakeIP,
 	}
-	for _, d := range st.Devices {
-		switch d.Policy {
-		case "block":
-			c.BlockMACs = append(c.BlockMACs, d.MAC)
-		case "direct":
-			c.DirectMACs = append(c.DirectMACs, d.MAC)
-		case "proxy", "node":
-			c.TunnelMACs = append(c.TunnelMACs, d.MAC)
-		}
-	}
+	dev := a.deviceRules(st)
+	c.TunnelMACs, c.DirectMACs, c.BlockMACs, c.DefaultDirect = dev.TunnelMACs, dev.DirectMACs, dev.BlockMACs, dev.DefaultDirect
 	if s.IranDirect {
 		v4, v6, err := ruleset.CIDRs(a.SingBoxBin(), a.RuleDir(), gen.RSIranIP)
 		if err == nil {
@@ -825,4 +823,20 @@ func (a *App) EnsureRuleSets(ctx context.Context) error {
 	}
 	_, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), missing)
 	return err
+}
+
+// deviceRules is the per-device part of the firewall config.
+func (a *App) deviceRules(st state.State) fw.Config {
+	c := fw.Config{LANInterfaces: st.Settings.LANInterfaces, DefaultDirect: st.Settings.DefaultPolicy == "direct"}
+	for _, d := range st.Devices {
+		switch d.Policy {
+		case "block":
+			c.BlockMACs = append(c.BlockMACs, d.MAC)
+		case "direct":
+			c.DirectMACs = append(c.DirectMACs, d.MAC)
+		case "proxy", "node":
+			c.TunnelMACs = append(c.TunnelMACs, d.MAC)
+		}
+	}
+	return c
 }

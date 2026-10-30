@@ -144,3 +144,27 @@ func TestWarpConfigs(t *testing.T) {
 		}
 	}
 }
+
+// FGZ_BODY=file: parse a subscription body and dump the core configs it
+// makes to FGZ_DUMP and FGZ_XRAY_DUMP, for checking with the real cores.
+func TestBodyFile(t *testing.T) {
+	path := os.Getenv("FGZ_BODY")
+	if path == "" {
+		t.Skip("FGZ_BODY not set")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := link.ParseBody(string(b))
+	t.Logf("%d nodes, skipped: %v", len(r.Nodes), r.Skipped)
+	st := state.State{Settings: state.Defaults(), Token: "s", Nodes: r.Nodes}
+	sb, err := Build(st, Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090, XrayBase: 21000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(os.Getenv("FGZ_DUMP"), sb, 0o644)
+	if x, err := BuildXray(st, 21000); err == nil {
+		_ = os.WriteFile(os.Getenv("FGZ_XRAY_DUMP"), x, 0o644)
+	}
+}
