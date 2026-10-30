@@ -32,6 +32,9 @@ type Env struct {
 	// Ports of this core instance. Two instances can run side by side while
 	// one replaces the other, so these come from the caller, not Settings.
 	TProxyPort, DNSPort, ClashPort, XrayBase int
+	// A local SOCKS inbound where the user name picks the server, so a
+	// measurement can go through one chosen server. 0 = none.
+	ProbePort int
 
 	RuleDir   string // where the .srs files live
 	CacheFile string
@@ -242,14 +245,29 @@ func Build(st state.State, env Env) ([]byte, error) {
 		// for devices configured to use it.
 		inbounds = append(inbounds, map[string]any{"type": "mixed", "tag": "mixed-in", "listen": listen, "listen_port": s.MixedPort, "reuse_addr": true})
 	}
+	if env.ProbePort > 0 {
+		users := make([]any, 0, len(nodes))
+		for _, n := range nodes {
+			users = append(users, map[string]any{"username": n.ID, "password": env.Secret})
+		}
+		inbounds = append(inbounds, map[string]any{"type": "mixed", "tag": "probe-in", "listen": "127.0.0.1",
+			"listen_port": env.ProbePort, "users": users})
+	}
 
 	// ------------------------------------------------------------ route
 	rules := []any{
 		map[string]any{"action": "sniff", "timeout": "100ms"},
 		map[string]any{"inbound": []any{"dns-in"}, "action": "hijack-dns"},
 		map[string]any{"protocol": []any{"dns"}, "action": "hijack-dns"},
-		map[string]any{"ip_is_private": true, "outbound": TagDirect},
 	}
+	if env.ProbePort > 0 {
+		// Measurements go through exactly the server they name, ahead of any
+		// routing rule.
+		for _, n := range nodes {
+			rules = append(rules, map[string]any{"inbound": []any{"probe-in"}, "auth_user": []any{n.ID}, "outbound": n.ID})
+		}
+	}
+	rules = append(rules, map[string]any{"ip_is_private": true, "outbound": TagDirect})
 	if s.QUICBlock {
 		rules = append(rules, map[string]any{"network": []any{"udp"}, "port": []any{443}, "action": "reject"})
 	}

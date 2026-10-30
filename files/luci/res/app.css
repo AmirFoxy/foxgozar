@@ -743,31 +743,93 @@
 .fgz-map .lbl { fill: var(--ink); font-size: 13px; font-weight: 600; text-transform: none; }
 .fgz-map .sub { fill: var(--ink-3); font-size: 12px; }
 
-/* games */
-.fgz-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.fgz-game {
-	background: var(--surface);
-	border: 1px solid var(--line);
-	border-radius: var(--r-m);
-	padding: 16px 18px;
-	box-shadow: var(--shadow);
-}
-.fgz-game h4 { margin: 0; font-size: 17px; font-weight: 800; }
-.fgz-game > small { color: var(--ink-3); font-size: 13px; }
-.fgz-best { margin: 10px 0 8px; font-size: 14px; color: var(--ink-2); }
-.fgz-best b { color: var(--ink); }
-.fgz-bars { display: grid; gap: 8px; }
-.fgz-barrow { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
-.fgz-barrow .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
-.fgz-barrow .track { height: 8px; background: var(--sunken); border-radius: 8px; overflow: hidden; }
-.fgz-barrow .track i { display: block; height: 100%; background: var(--ink-3); border-radius: 0 4px 4px 0; }
-[dir="rtl"] .fgz-barrow .track i { border-radius: 4px 0 0 4px; margin-inline-start: 0; }
-.fgz-barrow .track i.best { background: var(--fox); }
-.fgz-barrow .val { color: var(--ink); font-weight: 700; min-width: 4.5em; text-align: end; }
 @media (max-width: 720px) {
-	.fgz-games { grid-template-columns: 1fr; }
 	.fgz-key { margin-inline-end: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.fgz-map .flow { animation: none; display: none; }
+}
+
+/* ------------------------------------------------------------ game banners
+ * One banner per game: its art (from the publisher's CDN) under a dark
+ * scrim so the name reads, then a card per game server with the ping.
+ */
+.fgz-banners { display: grid; gap: 18px; }
+.fgz-banner {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--r-l);
+	overflow: hidden;
+	box-shadow: var(--shadow);
+}
+.fgz-banner .art {
+	position: relative;
+	height: 150px;
+	display: flex;
+	align-items: flex-end;
+	padding: 18px 22px;
+	background: linear-gradient(120deg, #2b2f55, #141630);
+	isolation: isolate;
+}
+.fgz-banner .art img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center 30%;
+	z-index: -2;
+}
+.fgz-banner .art::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	background: linear-gradient(0deg, rgb(10 12 28 / 0.85) 0%, rgb(10 12 28 / 0.25) 55%, rgb(10 12 28 / 0) 100%);
+}
+.fgz-banner h4 {
+	margin: 0;
+	color: #fff;
+	font-size: 30px;
+	font-weight: 900;
+	letter-spacing: -0.02em;
+	line-height: 1.1;
+	text-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+}
+/* Games without public art: their own colours instead. */
+.fgz-banner[data-game="valorant"] .art { background: linear-gradient(120deg, #ff4655, #3a0d17 70%); }
+.fgz-banner[data-game="wow"] .art { background: linear-gradient(120deg, #1d4b8f, #0b1530 60%, #6b4f12); }
+.fgz-banner[data-game="fortnite"] .art { background: linear-gradient(120deg, #6c2bd9, #1b1d6b 60%, #0e8fd6); }
+
+.fgz-banner .srvs {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: 1px;
+	background: var(--line);
+	border-top: 1px solid var(--line);
+}
+.fgz-srv { background: var(--surface); padding: 14px 18px 16px; min-width: 0; }
+.fgz-srv .srv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fgz-srv .srv-head b { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fgz-srv .srv-head small { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.fgz-srv .srv-ping { display: flex; align-items: baseline; gap: 6px; margin-block: 6px 2px; flex-wrap: wrap; }
+.fgz-srv .big { font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: proportional-nums; }
+.fgz-srv .unit { color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.fgz-srv .q { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.fgz-srv .q i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.fgz-srv[data-q="great"] .q i, .fgz-srv[data-q="good"] .q i { background: var(--ok); }
+.fgz-srv[data-q="ok"] .q i { background: var(--fox); }
+.fgz-srv[data-q="high"] .q i, .fgz-srv[data-q="fail"] .q i { background: var(--bad); }
+.fgz-srv[data-q="great"] .big { color: var(--ok); }
+.fgz-srv .via { display: block; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-srv .others { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--line); display: grid; gap: 2px; }
+.fgz-srv .others li { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink-3); }
+.fgz-srv .others li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fgz-srv .others li b { color: var(--ink-2); font-weight: 600; white-space: nowrap; flex: none; }
+@media (max-width: 720px) {
+	.fgz-banner .art { height: 120px; padding: 14px 16px; }
+	.fgz-banner h4 { font-size: 24px; }
+	.fgz-banner .srvs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.fgz-srv { padding: 12px 14px; }
+	.fgz-srv .big { font-size: 28px; }
 }

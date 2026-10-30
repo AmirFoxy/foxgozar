@@ -67,6 +67,9 @@ func (sl *slot) clashPort(s state.Settings) int {
 }
 func (sl *slot) xrayBase() int { return gen.XrayBasePort + 2000*sl.id }
 
+// The measuring inbound: internal only, ten above the Clash API ports.
+func (sl *slot) probePort(s state.Settings) int { return s.ClashPort + 10 + sl.id }
+
 func (sl *slot) configPath(run string) string {
 	return filepath.Join(run, fmt.Sprintf("sing-box-%d.json", sl.id))
 }
@@ -91,6 +94,7 @@ func (a *App) envFor(st state.State, sl *slot) gen.Env {
 		DNSPort:    sl.dns(st.Settings),
 		ClashPort:  sl.clashPort(st.Settings),
 		XrayBase:   sl.xrayBase(),
+		ProbePort:  sl.probePort(st.Settings),
 	}
 }
 

@@ -267,6 +267,12 @@ func client(cmd string, args []string) error {
 			body = map[string]string{"policy": "node", "node": args[1]}
 		}
 		return call("PUT", "/api/devices/"+args[0], body, nil)
+	case "ping":
+		// foxgozar ping NODE URL: round trip on an open connection through NODE
+		if len(args) < 2 {
+			usage()
+		}
+		return call("POST", "/api/ping", map[string]string{"node": args[0], "url": args[1]}, nil)
 	case "select":
 		if len(args) < 1 {
 			usage()

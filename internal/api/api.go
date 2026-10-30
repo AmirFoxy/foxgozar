@@ -64,6 +64,7 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/services", s.servicesLast)
 	h("GET /api/games", s.gamesLast)
 	h("POST /api/games/test", s.gamesTest)
+	h("POST /api/ping", s.ping)
 	h("POST /api/services/test", s.servicesTest)
 	h("GET /api/nodes/{id}/share", s.share)
 
@@ -780,4 +781,14 @@ func (s *Server) gamesLast(w http.ResponseWriter, r *http.Request) (any, error) 
 
 func (s *Server) gamesTest(w http.ResponseWriter, r *http.Request) (any, error) {
 	return s.App.TestGames(r.Context())
+}
+
+func (s *Server) ping(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Node, URL string
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	return map[string]int{"ms": s.App.PingVia(r.Context(), req.Node, req.URL)}, nil
 }

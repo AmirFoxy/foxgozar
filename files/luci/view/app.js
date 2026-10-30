@@ -32,7 +32,8 @@ var T = {
 		showTable: 'Show as table', hideTable: 'Hide table', when: 'When', secAgo: '{0} s ago', minsAgo: '{0} min ago', now: 'now',
 		mapTitle: 'Your network', mapNote: 'Line width shows each device’s speed through the tunnel. Direct devices use the router’s own way out.',
 		router: 'Router', internet: 'Internet', directPath: 'Direct, without the tunnel',
-		testGames: 'Measure', gamesNote: 'Latency through each connection to the data centres where each game runs its servers for this region. In-game ping is usually a little lower; the ranking is what matters.',
+		testGames: 'Measure ping', retestGames: 'Measure again', gamesNote: 'Ping through each of your connections to the city where each game runs its servers, measured on an open connection the way a game plays. It lands within a few ms of in-game ping.',
+		pingGreat: 'great', pingGood: 'good', pingOk: 'playable', pingHigh: 'high', notMeasured: 'not measured yet',
 		noGames: 'Not measured yet', noGamesHint: 'Connect, then press Measure. It takes a few seconds.', bestFor: 'Best connection:', noneAnswered: 'No connection reached these servers',
 		devices: 'Devices', newDevices: 'Devices without a setting of their own', viaTunnel: 'Through the tunnel', direct: 'Direct, without the tunnel', block: 'No internet', viaServer: 'Through {0}',
 		noDevices: 'No devices seen yet', noDevicesHint: 'Devices appear here once they connect to the router.', offlineDev: 'offline', rename: 'Rename', devName: 'Device name',
@@ -90,7 +91,8 @@ var T = {
 		showTable: 'نمایش جدول', hideTable: 'بستن جدول', when: 'زمان', secAgo: '{0} ثانیه پیش', minsAgo: '{0} دقیقه پیش', now: 'الان',
 		mapTitle: 'شبکه شما', mapNote: 'ضخامت هر خط سرعت آن دستگاه از تونل را نشان می‌دهد. دستگاه‌های مستقیم از راه خود روتر بیرون می‌روند.',
 		router: 'روتر', internet: 'اینترنت', directPath: 'مستقیم، بدون تونل',
-		testGames: 'اندازه‌گیری', gamesNote: 'تأخیر هر اتصال تا دیتاسنترهایی که هر بازی سرورهایش را برای این منطقه آن‌جا دارد. پینگ داخل بازی معمولاً کمی کمتر است؛ مقایسه اتصال‌ها مهم است.',
+		testGames: 'اندازه‌گیری پینگ', retestGames: 'اندازه‌گیری دوباره', gamesNote: 'پینگ هر کدام از اتصال‌های شما تا شهری که سرورهای هر بازی در آن است، روی اتصال باز و همان‌طور که بازی کار می‌کند. چند میلی‌ثانیه با پینگ داخل بازی فاصله دارد.',
+		pingGreat: 'عالی', pingGood: 'خوب', pingOk: 'قابل بازی', pingHigh: 'بالا', notMeasured: 'هنوز اندازه‌گیری نشده',
 		noGames: 'هنوز اندازه‌گیری نشده', noGamesHint: 'وصل شوید و «اندازه‌گیری» را بزنید. چند ثانیه طول می‌کشد.', bestFor: 'بهترین اتصال:', noneAnswered: 'هیچ اتصالی به این سرورها نرسید',
 		devices: 'دستگاه‌ها', newDevices: 'دستگاه‌هایی که تنظیم جداگانه ندارند', viaTunnel: 'از تونل', direct: 'مستقیم، بدون تونل', block: 'بدون اینترنت', viaServer: 'از طریق {0}',
 		noDevices: 'هنوز دستگاهی دیده نشده', noDevicesHint: 'دستگاه‌ها بعد از وصل شدن به روتر این‌جا نمایش داده می‌شوند.', offlineDev: 'آفلاین', rename: 'تغییر نام', devName: 'نام دستگاه',
@@ -833,7 +835,7 @@ function drawMap() {
 
 /* ---------- games */
 
-var REGION_FA = { fra: 'فرانکفورت', par: 'پاریس', sto: 'استکهلم', ams: 'آمستردام', bah: 'بحرین', uae: 'امارات' };
+var REGION_FA = { lux: 'لوکزامبورگ', ams: 'آمستردام', fra: 'فرانکفورت', par: 'پاریس', vie: 'وین', sto: 'استکهلم', bah: 'بحرین', dxb: 'دبی' };
 
 function regionName(id) {
 	if (lang === 'fa' && REGION_FA[id]) return REGION_FA[id];
@@ -841,46 +843,67 @@ function regionName(id) {
 	return r ? r.name : id;
 }
 
+// How a ping feels in a game. Status, so it always comes with its word.
+function pingQuality(ms) {
+	if (ms < 0) return ['fail', t('failedShort')];
+	if (ms < 80) return ['great', t('pingGreat')];
+	if (ms < 120) return ['good', t('pingGood')];
+	if (ms < 180) return ['ok', t('pingOk')];
+	return ['high', t('pingHigh')];
+}
+
+// Banner art loads from the publisher's own CDN when the page is viewed;
+// nothing is bundled. Without art the banner falls back to its colours.
+function gameArt(game) {
+	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/library_hero.jpg';
+	return game.art || '';
+}
+
 function panelGames() {
 	var g = S.games || {};
 	var res = g.results || {};
-	var tested = Object.keys(res).length > 0;
+	var names = {};
+	S.nodes.forEach(function(n) { names[n.id] = n.name; });
+	var conns = Object.keys(res).filter(function(id) { return names[id]; });
 	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
 		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
 		btn.textContent = t('testing');
 		busy(btn, api('POST', '/api/games/test').then(function(r) { S.games = r; renderPanel(); })
 			.catch(function(e) { toast(e.message); btn.textContent = t('testGames'); }));
-	} }, t('testGames'));
-	var head = h('div', { 'class': 'fgz-bar' }, [h('p', { 'class': 'grow fgz-note', style: 'margin:0' }, t('gamesNote')), btn]);
-	if (!tested)
-		return h('div', { 'class': 'fgz-panel' }, [head, h('div', { 'class': 'fgz-empty' }, [h('b', {}, t('noGames')), t('noGamesHint')])]);
-	var names = {};
-	S.nodes.forEach(function(n) { names[n.id] = n.name; });
-	var cards = (g.games || []).map(function(game) {
-		var rows = Object.keys(res).filter(function(id) { return names[id]; }).map(function(id) {
-			var best = -1, where = '';
-			game.regions.forEach(function(r) {
-				var d = res[id][r];
-				if (d > 0 && (best < 0 || d < best)) { best = d; where = r; }
-			});
-			return { id: id, ms: best, region: where };
-		}).sort(function(a, b) { return (a.ms < 0) - (b.ms < 0) || a.ms - b.ms; });
-		var worst = Math.max.apply(null, rows.map(function(r) { return r.ms; }).concat([1]));
-		var top = rows[0] && rows[0].ms > 0 ? rows[0] : null;
-		return h('article', { 'class': 'fgz-game' }, [
-			h('h4', {}, game.name),
-			h('small', {}, game.regions.map(regionName).join(lang === 'fa' ? '، ' : ', ')),
-			top ? h('p', { 'class': 'fgz-best' }, [t('bestFor') + ' ', h('b', { dir: 'auto' }, names[top.id])]) : h('p', { 'class': 'fgz-best' }, t('noneAnswered')),
-			h('div', { 'class': 'fgz-bars' }, rows.map(function(r, i) {
-				return h('div', { 'class': 'fgz-barrow', title: names[r.id] + ': ' + (r.ms > 0 ? r.ms + ' ms, ' + regionName(r.region) : t('failedShort')) }, [
-					h('span', { 'class': 'who', dir: 'auto' }, names[r.id]),
-					h('span', { 'class': 'track' }, r.ms > 0 ? h('i', { 'class': i === 0 ? 'best' : null, style: 'width:' + Math.max(4, r.ms / worst * 100).toFixed(1) + '%' }) : null),
-					h('span', { 'class': 'val num', dir: 'ltr' }, r.ms > 0 ? num(r.ms) + ' ms' : t('failedShort'))
-				]);
-			}))
+	} }, conns.length ? t('retestGames') : t('testGames'));
+	var head = h('div', { 'class': 'fgz-panel fgz-section' }, [h('div', { 'class': 'fgz-bar' }, [
+		h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')), btn])]);
+
+	var banners = (g.games || []).map(function(game) {
+		var art = gameArt(game);
+		var servers = game.servers.map(function(sv) {
+			// Every connection to this server's city, best first.
+			var rows = conns.map(function(id) { return { id: id, ms: res[id][sv.region] }; })
+				.filter(function(r) { return r.ms != null; })
+				.sort(function(a, b) { return (a.ms < 0) - (b.ms < 0) || a.ms - b.ms; });
+			var best = rows[0];
+			var q = pingQuality(best ? best.ms : -1);
+			return h('div', { 'class': 'fgz-srv', 'data-q': conns.length ? q[0] : 'none' }, present([
+				h('div', { 'class': 'srv-head' }, [h('b', { dir: 'ltr' }, sv.name), regionName(sv.region) === sv.name ? null : h('small', {}, regionName(sv.region))]),
+				conns.length ? h('div', { 'class': 'srv-ping' }, [
+					h('span', { 'class': 'big num', dir: 'ltr' }, best && best.ms > 0 ? num(best.ms) : '—'),
+					best && best.ms > 0 ? h('span', { 'class': 'unit' }, 'ms') : null,
+					h('span', { 'class': 'q' }, [h('i'), q[1]])
+				]) : h('div', { 'class': 'srv-ping' }, h('span', { 'class': 'unit' }, t('notMeasured'))),
+				best && best.ms > 0 ? h('small', { 'class': 'via', dir: 'auto' }, t('via', names[best.id])) : null,
+				rows.length > 1 ? h('ul', { 'class': 'others' }, rows.slice(1, 4).map(function(r) {
+					return h('li', {}, [h('span', { dir: 'auto' }, names[r.id]), h('b', { 'class': 'num', dir: 'ltr' }, r.ms > 0 ? num(r.ms) + ' ms' : t('failedShort'))]);
+				})) : null
+			]));
+		});
+		var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
+		if (img) img.addEventListener('error', function() { img.remove(); });
+		return h('article', { 'class': 'fgz-banner', 'data-game': game.id }, [
+			h('div', { 'class': 'art' }, present([img, h('h4', { dir: 'ltr' }, game.name)])),
+			h('div', { 'class': 'srvs' }, servers)
 		]);
 	});
-	return h('div', {}, [h('div', { 'class': 'fgz-panel fgz-section' }, [head]), h('div', { 'class': 'fgz-games' }, cards)]);
+	return h('div', {}, [head, h('div', { 'class': 'fgz-banners' }, banners)]);
 }
 
 /* ---------- subscriptions */
