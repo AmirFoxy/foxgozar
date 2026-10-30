@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"zirgozar/internal/core"
-	"zirgozar/internal/state"
+	"foxgozar/internal/core"
+	"foxgozar/internal/state"
 )
 
 const base = "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/"
@@ -73,7 +73,7 @@ func CIDRs(singBox, dir, tag string) (v4, v6 []string, err error) {
 			return v4, v6, nil
 		}
 	}
-	tmp := filepath.Join(os.TempDir(), "zgz-"+tag+".json")
+	tmp := filepath.Join(os.TempDir(), "fgz-"+tag+".json")
 	defer os.Remove(tmp)
 	if out, e := exec.Command(singBox, "rule-set", "decompile", "-o", tmp, srs).CombinedOutput(); e != nil {
 		return nil, nil, fmt.Errorf("decompile %s: %v %s", tag, e, strings.TrimSpace(string(out)))

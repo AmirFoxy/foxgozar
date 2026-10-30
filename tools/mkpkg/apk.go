@@ -19,13 +19,12 @@ func stageAPK(dir, arch, version, bin string) {
 		files = append(files, file{"./root/" + strings.TrimPrefix(f.path, "./"), f.mode, f.data})
 	}
 	scripts := map[string]string{
-		"pre-install":   preinst,
 		"post-install":  postinst,
 		"post-upgrade":  postinst,
 		"pre-deinstall": prerm,
 	}
 	var args []string
-	for _, typ := range []string{"pre-install", "post-install", "post-upgrade", "pre-deinstall"} {
+	for _, typ := range []string{"post-install", "post-upgrade", "pre-deinstall"} {
 		files = append(files, file{"./scripts/" + typ, 0o755, []byte(scripts[typ])})
 		args = append(args, fmt.Sprintf("--script %s:scripts/%s", typ, typ))
 	}
@@ -34,20 +33,18 @@ func stageAPK(dir, arch, version, bin string) {
 	if !strings.Contains(apkVersion, "-r") {
 		apkVersion += "-r1"
 	}
-	out := fmt.Sprintf("zirgozar-%s.%s.apk", apkVersion, arch)
+	out := fmt.Sprintf("foxgozar-%s.%s.apk", apkVersion, arch)
 	script := fmt.Sprintf(`#!/bin/sh
 # Builds %[1]s from root/ and scripts/ with apk-tools v3.
 set -e
 cd "$(dirname "$0")"
 apk mkpkg \
-	--info name:zirgozar \
+	--info name:foxgozar \
 	--info version:%[2]s \
-	--info "description:Zirgozar - fast transparent proxy for OpenWrt (sing-box core)" \
+	--info "description:FoxGozar - fast transparent proxy for OpenWrt (sing-box core)" \
 	--info arch:%[3]s \
 	--info license:AGPL-3.0-or-later \
-	--info url:https://github.com/dreamboxone/zirgozar \
-	--info "depends:libc kmod-nft-tproxy ca-bundle !luci-app-zirgozar" \
-	--info replaces:luci-app-zirgozar \
+	--info "depends:libc kmod-nft-tproxy ca-bundle" \
 	%[4]s \
 	--files root \
 	--output %[1]s

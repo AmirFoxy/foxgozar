@@ -1,3 +1,3 @@
-module zirgozar
+module foxgozar
 
 go 1.24

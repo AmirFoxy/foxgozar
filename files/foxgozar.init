@@ -1,16 +1,16 @@
 #!/bin/sh /etc/rc.common
-# Zirgozar: zgzd supervises the core, the firewall rules and the API.
+# FoxGozar: foxgozar supervises the core, the firewall rules and the API.
 
 START=99
 STOP=10
 USE_PROCD=1
 
-PROG=/usr/bin/zgzd
+PROG=/usr/bin/foxgozar
 
 start_service() {
 	procd_open_instance
 	procd_set_param command "$PROG" run
-	# zgzd restores the network itself when it stops; a crash loop gives up
+	# foxgozar restores the network itself when it stops; a crash loop gives up
 	# after five tries in an hour rather than flapping the network forever.
 	procd_set_param respawn 3600 5 5
 	procd_set_param term_timeout 10

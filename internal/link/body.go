@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"zirgozar/internal/state"
+	"foxgozar/internal/state"
 )
 
 // Result of reading a pasted text or a subscription body.

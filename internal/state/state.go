@@ -1,4 +1,4 @@
-// Package state holds everything zgzd persists: settings, nodes and
+// Package state holds everything foxgozar persists: settings, nodes and
 // subscriptions. One JSON file, written atomically, guarded by one mutex.
 package state
 
@@ -16,14 +16,17 @@ import (
 // Node is one server. Outbound is a ready sing-box outbound (or endpoint,
 // for WireGuard) without its tag; the tag is always the node ID.
 type Node struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Type     string         `json:"type"`
-	Server   string         `json:"server"`
-	Port     int            `json:"port"`
-	Sub      string         `json:"sub,omitempty"`
-	Link     string         `json:"link,omitempty"`
-	Endpoint bool           `json:"endpoint,omitempty"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Server   string `json:"server"`
+	Port     int    `json:"port"`
+	Sub      string `json:"sub,omitempty"`
+	Link     string `json:"link,omitempty"`
+	Endpoint bool   `json:"endpoint,omitempty"`
+	// "xray" when only Xray can speak this node (VLESS encryption, XHTTP);
+	// Outbound is then an Xray outbound, not a sing-box one.
+	Core     string         `json:"core,omitempty"`
 	Outbound map[string]any `json:"outbound"`
 	// Last measured delay in ms; 0 unknown, -1 failed. Used to order the
 	// urltest group so the first pick after a start is already a good one.

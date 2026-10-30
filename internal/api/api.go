@@ -18,11 +18,11 @@ import (
 	"sync"
 	"time"
 
-	"zirgozar/internal/app"
-	"zirgozar/internal/clash"
-	"zirgozar/internal/core"
-	"zirgozar/internal/link"
-	"zirgozar/internal/state"
+	"foxgozar/internal/app"
+	"foxgozar/internal/clash"
+	"foxgozar/internal/core"
+	"foxgozar/internal/link"
+	"foxgozar/internal/state"
 )
 
 type Server struct {
@@ -172,7 +172,7 @@ func (s *Server) luciSession(sid string) bool {
 	}
 	s.mu.Unlock()
 	arg, _ := json.Marshal(map[string]string{"ubus_rpc_session": sid, "scope": "access-group",
-		"object": "luci-app-zirgozar", "function": "write"})
+		"object": "luci-app-foxgozar", "function": "write"})
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "ubus", "call", "session", "access", string(arg)).Output()
@@ -617,6 +617,7 @@ func (s *Server) traffic(w http.ResponseWriter, r *http.Request) {
 func (s *Server) coreInfo(w http.ResponseWriter, r *http.Request) (any, error) {
 	return map[string]string{
 		"sing_box": core.Version(s.App.SingBoxBin()),
+		"xray":     core.Version(s.App.XrayBin()),
 	}, nil
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Table   = "zirgozar"
+	Table   = "foxgozar"
 	FwMark  = 0x1
 	RouteID = 100
 )
@@ -63,7 +63,7 @@ func quoteList(xs []string) string {
 	return "{ " + strings.Join(q, ", ") + " }"
 }
 
-// Script renders the whole table. Exported for tests and for `zgzd fw dump`.
+// Script renders the whole table. Exported for tests and for `foxgozar fw dump`.
 func Script(c Config) string {
 	var b strings.Builder
 	// Deleting and re-adding in one transaction: atomic replace.

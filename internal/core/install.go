@@ -133,7 +133,7 @@ func get(ctx context.Context, c *http.Client, u, ua string, limit int64) ([]byte
 		return nil, nil, err
 	}
 	if ua == "" {
-		ua = "zirgozar"
+		ua = "foxgozar"
 	}
 	req.Header.Set("User-Agent", ua)
 	resp, err := c.Do(req)

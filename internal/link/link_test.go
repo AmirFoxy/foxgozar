@@ -3,7 +3,6 @@ package link
 import (
 	"encoding/base64"
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -51,9 +50,33 @@ func TestVLESSWebSocketEarlyData(t *testing.T) {
 	}
 }
 
-func TestXHTTPUnsupported(t *testing.T) {
-	if _, err := Parse("vless://id@1.2.3.4:443?type=xhttp&security=tls"); err == nil || !strings.Contains(err.Error(), "Xray") {
-		t.Fatalf("want an Xray error, got %v", err)
+func TestXrayOnlyLinks(t *testing.T) {
+	// VLESS encryption (ML-KEM), as Xray exports it.
+	n, err := Parse("vless://11111111-2222-3333-4444-555555555555@dl5.example.xyz:12082?alpn=h2%2Ch3&encryption=mlkem768x25519plus.native.0rtt.ekPN&fp=chrome&security=tls&sni=&type=tcp#Tunnel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Core != "xray" || n.Name != "Tunnel" || n.Server != "dl5.example.xyz" || n.Port != 12082 {
+		t.Fatalf("bad: %+v", n)
+	}
+	user := get(n.Outbound, "settings", "vnext").([]any)[0].(map[string]any)["users"].([]any)[0].(map[string]any)
+	if user["encryption"] != "mlkem768x25519plus.native.0rtt.ekPN" {
+		t.Fatalf("encryption lost: %v", user)
+	}
+	if get(n.Outbound, "streamSettings", "network") != "raw" || get(n.Outbound, "streamSettings", "tlsSettings", "serverName") != nil {
+		t.Fatalf("bad stream: %v", n.Outbound["streamSettings"])
+	}
+
+	x, err := Parse("vless://id@1.2.3.4:443?type=xhttp&security=reality&sni=a.com&pbk=K&sid=1&mode=packet-up&path=%2Fx")
+	if err != nil || x.Core != "xray" || get(x.Outbound, "streamSettings", "xhttpSettings", "mode") != "packet-up" ||
+		get(x.Outbound, "streamSettings", "realitySettings", "publicKey") != "K" {
+		t.Fatalf("xhttp: %v %v", err, x.Outbound)
+	}
+
+	// Plain VLESS stays with sing-box.
+	p, _ := Parse("vless://id@dl5.example.xyz:18351?encryption=none&security=none&type=tcp#T2")
+	if p.Core != "" || p.Outbound["type"] != "vless" {
+		t.Fatalf("plain vless went to xray: %+v", p)
 	}
 }
 
@@ -129,7 +152,7 @@ func TestWireGuardEndpoint(t *testing.T) {
 func TestSubscriptionBase64AndDedup(t *testing.T) {
 	lines := "trojan://a@x.example:443#1\ntrojan://a@x.example:443#dup\nvless://id@1.2.3.4:443?type=xhttp\ngarbage\n"
 	r := ParseBody(base64.StdEncoding.EncodeToString([]byte(lines)))
-	if len(r.Nodes) != 1 || len(r.Skipped) != 2 {
+	if len(r.Nodes) != 2 || len(r.Skipped) != 1 { // the xhttp one goes to Xray
 		t.Fatalf("nodes %d skipped %v", len(r.Nodes), r.Skipped)
 	}
 }

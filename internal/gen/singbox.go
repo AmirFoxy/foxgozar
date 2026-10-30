@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"zirgozar/internal/state"
+	"foxgozar/internal/state"
 )
 
 const (
@@ -76,7 +76,13 @@ func Build(st state.State, env Env) ([]byte, error) {
 
 	var outbounds, endpoints []any
 	tags := make([]any, 0, len(nodes))
+	xrayPorts := XrayPorts(st.Nodes)
 	for _, n := range nodes {
+		if n.Core == "xray" {
+			outbounds = append(outbounds, xraySocks(n.ID, xrayPorts[n.ID]))
+			tags = append(tags, n.ID)
+			continue
+		}
 		ob := map[string]any{}
 		for k, v := range n.Outbound {
 			ob[k] = v
@@ -124,9 +130,11 @@ func Build(st state.State, env Env) ([]byte, error) {
 	}
 	sel := map[string]any{
 		"type": "selector", "tag": TagProxy,
-		"outbounds":                   append([]any{TagAuto}, tags...),
-		"default":                     TagAuto, // the manual choice is applied through the API, so changing it never changes the config
-		"interrupt_exist_connections": true,
+		"outbounds": append([]any{TagAuto}, tags...),
+		"default":   TagAuto, // the manual choice is applied through the API, so changing it never changes the config
+		// Switching never cuts what is already open: those connections finish
+		// on the old node, new ones use the new node.
+		"interrupt_exist_connections": false,
 	}
 	outbounds = append(outbounds, auto, sel, map[string]any{"type": "direct", "tag": TagDirect})
 

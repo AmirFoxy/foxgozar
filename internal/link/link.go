@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"zirgozar/internal/state"
+	"foxgozar/internal/state"
 )
 
 var ErrUnsupported = errors.New("unsupported")
@@ -322,6 +322,9 @@ func parseVLESSTrojan(raw, kind string) (state.Node, error) {
 	}
 	q := u.Query()
 	p := readParams(q)
+	if needsXray(kind, q, p) {
+		return xrayNode(kind, server, prt, secret, q, p, fragment(u))
+	}
 	ob := map[string]any{"type": kind, "server": server, "server_port": prt}
 	if kind == "vless" {
 		ob["uuid"] = secret

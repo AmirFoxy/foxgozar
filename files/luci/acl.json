@@ -1,6 +1,6 @@
 {
-	"luci-app-zirgozar": {
-		"description": "Zirgozar",
+	"luci-app-foxgozar": {
+		"description": "FoxGozar",
 		"read": {
 			"ubus": { "session": [ "access" ] }
 		},

@@ -1,8 +1,8 @@
 {
-	"admin/services/zirgozar": {
-		"title": "Zirgozar",
+	"admin/services/foxgozar": {
+		"title": "FoxGozar",
 		"order": 10,
-		"action": { "type": "view", "path": "zirgozar/app" },
-		"depends": { "acl": [ "luci-app-zirgozar" ] }
+		"action": { "type": "view", "path": "foxgozar/app" },
+		"depends": { "acl": [ "luci-app-foxgozar" ] }
 	}
 }

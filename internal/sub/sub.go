@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"zirgozar/internal/core"
-	"zirgozar/internal/link"
-	"zirgozar/internal/state"
+	"foxgozar/internal/core"
+	"foxgozar/internal/link"
+	"foxgozar/internal/state"
 )
 
 // Most panels (Marzban, 3x-ui, Hiddify) answer this User-Agent with plain

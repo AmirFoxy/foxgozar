@@ -1,4 +1,4 @@
-// Package app is zgzd's brain: it owns the core process, the firewall and
+// Package app is foxgozar's brain: it owns the core process, the firewall and
 // the background jobs, and is what the API calls into.
 package app
 
@@ -13,19 +13,19 @@ import (
 	"sync"
 	"time"
 
-	"zirgozar/internal/clash"
-	"zirgozar/internal/core"
-	"zirgozar/internal/fw"
-	"zirgozar/internal/gen"
-	"zirgozar/internal/ruleset"
-	"zirgozar/internal/state"
-	"zirgozar/internal/sub"
+	"foxgozar/internal/clash"
+	"foxgozar/internal/core"
+	"foxgozar/internal/fw"
+	"foxgozar/internal/gen"
+	"foxgozar/internal/ruleset"
+	"foxgozar/internal/state"
+	"foxgozar/internal/sub"
 )
 
 type Paths struct {
-	Etc string // /etc/zirgozar: state.json, rules/
+	Etc string // /etc/foxgozar: state.json, rules/
 	Bin string // where downloaded cores live
-	Run string // /var/run/zirgozar: generated config, cache
+	Run string // /var/run/foxgozar: generated config, cache
 }
 
 const (
@@ -42,6 +42,7 @@ type App struct {
 	Log   *core.Ring
 
 	sb    *core.Process
+	xr    *core.Process // only while there are Xray nodes
 	clash *clash.Client
 
 	op       sync.Mutex // one start/stop/apply at a time
@@ -50,6 +51,7 @@ type App struct {
 	message  string
 	since    time.Time
 	lastHash [32]byte
+	xrayHash [32]byte
 	delays   map[string]int // live measurements, persisted now and then
 	busy     map[string]bool
 }
@@ -65,11 +67,18 @@ func New(p Paths, st *state.Store) *App {
 		Check: []string{"check", "-c", cfg},
 	}
 	a.sb.OnExit = func(error) { a.onCoreExit() }
+	xcfg := filepath.Join(p.Run, "xray.json")
+	a.xr = &core.Process{
+		Name: "xray", Bin: a.XrayBin(), Log: a.Log,
+		Args:  []string{"run", "-c", xcfg},
+		Check: []string{"run", "-test", "-c", xcfg},
+	}
 	a.clash = clash.New(s.Settings.ClashPort, s.Token)
 	return a
 }
 
 func (a *App) SingBoxBin() string { return filepath.Join(a.Paths.Bin, "sing-box") }
+func (a *App) XrayBin() string    { return filepath.Join(a.Paths.Bin, "xray") }
 func (a *App) RuleDir() string    { return filepath.Join(a.Paths.Etc, "rules") }
 
 func (a *App) setPhase(p, msg string) {
@@ -80,7 +89,7 @@ func (a *App) setPhase(p, msg string) {
 	a.phase, a.message = p, msg
 	a.mu.Unlock()
 	if msg != "" {
-		a.Log.Add("zgzd", p+": "+msg)
+		a.Log.Add("foxgozar", p+": "+msg)
 	}
 }
 
@@ -101,15 +110,15 @@ func (a *App) Fetcher() *core.Fetcher {
 	return f
 }
 
-// Boot runs once when zgzd starts.
+// Boot runs once when foxgozar starts.
 func (a *App) Boot(ctx context.Context) {
-	// Whatever a previous zgzd left behind points at a core that is gone.
+	// Whatever a previous foxgozar left behind points at a core that is gone.
 	fw.Down()
 	s := a.Store.View().Settings
 	if s.Enabled {
 		go func() {
 			if err := a.Start(ctx); err != nil {
-				a.Log.Add("zgzd", "start at boot: "+err.Error())
+				a.Log.Add("foxgozar", "start at boot: "+err.Error())
 			}
 		}()
 	} else {
@@ -141,11 +150,18 @@ func (a *App) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	if _, err := os.Stat(a.XrayBin()); err != nil && gen.HasXray(st.Nodes) {
+		a.setPhase(Installing, "downloading Xray")
+		if err := a.installCore(ctx, core.Xray); err != nil {
+			// Not fatal: the sing-box nodes still work.
+			a.Log.Add("foxgozar", "could not download Xray: "+err.Error())
+		}
+	}
 	if st.Settings.IranDirect && ruleset.Age(a.RuleDir(), gen.RSIranIP) > 1<<61 {
 		a.setPhase(Installing, "downloading Iran rule-sets")
 		if _, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), a.wantedRuleSets(st.Settings)); err != nil {
 			// Not fatal: .ir domains still go direct, the rest waits for later.
-			a.Log.Add("zgzd", "rule-sets: "+err.Error())
+			a.Log.Add("foxgozar", "rule-sets: "+err.Error())
 		}
 	}
 	a.setPhase(Starting, "")
@@ -180,6 +196,9 @@ func (a *App) Start(ctx context.Context) error {
 // second on a 700 MHz router, so the config is not checked separately on a
 // cold start: a bad one makes the core exit at once and that is reported.
 func (a *App) warmLocked(st state.State) error {
+	if err := a.syncXrayLocked(st); err != nil {
+		return err
+	}
 	if a.sb.Running() {
 		if a.configHash(st) == a.lastHash {
 			return nil
@@ -223,6 +242,7 @@ func (a *App) stopLocked(full bool) {
 	fw.Down()
 	if full {
 		a.sb.Stop()
+		a.xr.Stop()
 	}
 	a.persistDelays()
 	_ = fw.KillSwitch(false, nil)
@@ -244,23 +264,15 @@ func (a *App) Apply(ctx context.Context) error {
 		return nil
 	}
 	// A warm core follows every change too, so Connect stays instant.
-	h := a.configHash(st)
-	if h != a.lastHash {
-		if err := a.writeConfig(st); err != nil {
-			return err
-		}
-		if err := a.sb.Validate(); err != nil {
-			a.Log.Add("zgzd", "new config rejected, keeping the running one: "+err.Error())
-			return fmt.Errorf("config rejected: %w", err)
-		}
+	if a.configHash(st) != a.lastHash {
 		// Rules stay in place: packets wait in the kernel for the few
 		// hundred ms the core needs to reopen its sockets.
-		if err := a.sb.Reload(); err != nil {
+		if err := a.warmLocked(st); err != nil {
+			a.Log.Add("foxgozar", "new config not applied, the running one stays: "+err.Error())
 			return err
 		}
-		time.Sleep(150 * time.Millisecond)
 		core.WaitListening(st.Settings.TProxyPort, 10*time.Second, a.sb.Running)
-		a.Log.Add("zgzd", "configuration reloaded")
+		a.Log.Add("foxgozar", "configuration reloaded")
 	}
 	if !st.Settings.Enabled {
 		return nil
@@ -285,7 +297,7 @@ func (a *App) applySelection(ctx context.Context, s state.Settings) {
 		if err := a.clash.Select(c, gen.TagProxy, target); err == nil {
 			return
 		} else if i == 19 {
-			a.Log.Add("zgzd", "select: "+err.Error())
+			a.Log.Add("foxgozar", "select: "+err.Error())
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -341,7 +353,7 @@ func (a *App) onCoreExit() {
 func (a *App) syncKillSwitch(s state.Settings, tunnelUp bool) {
 	on := s.Enabled && s.KillSwitch && !tunnelUp
 	if err := fw.KillSwitch(on, s.LANInterfaces); err != nil {
-		a.Log.Add("zgzd", "kill switch: "+err.Error())
+		a.Log.Add("foxgozar", "kill switch: "+err.Error())
 	}
 }
 
@@ -387,7 +399,7 @@ func (a *App) fwConfig(s state.Settings) fw.Config {
 		if err == nil {
 			c.DirectV4, c.DirectV6 = v4, v6
 		} else if !errors.Is(err, os.ErrNotExist) {
-			a.Log.Add("zgzd", "Iran IP list: "+err.Error())
+			a.Log.Add("foxgozar", "Iran IP list: "+err.Error())
 		}
 	}
 	return c
@@ -408,7 +420,7 @@ func (a *App) installCore(ctx context.Context, k core.Kind) error {
 	if err != nil {
 		return err
 	}
-	a.Log.Add("zgzd", fmt.Sprintf("installing %s %s", k, r.Tag))
+	a.Log.Add("foxgozar", fmt.Sprintf("installing %s %s", k, r.Tag))
 	_, err = f.Install(ctx, k, r, a.Paths.Bin)
 	return err
 }
@@ -421,6 +433,16 @@ func (a *App) UpdateCore(ctx context.Context, k core.Kind) (string, error) {
 	defer a.release("core-" + string(k))
 	if err := a.installCore(ctx, k); err != nil {
 		return "", err
+	}
+	if k == core.Xray {
+		a.op.Lock()
+		a.xr.Stop()
+		a.xrayHash = [32]byte{}
+		err := a.syncXrayLocked(a.Store.View())
+		a.op.Unlock()
+		if err != nil {
+			return "", err
+		}
 	}
 	if k == core.SingBox && a.sb.Running() {
 		a.op.Lock()
@@ -647,7 +669,7 @@ func (a *App) loop(ctx context.Context) {
 			if err != nil {
 				failures++
 				if failures >= 3 {
-					a.Log.Add("zgzd", "core not answering, restarting it")
+					a.Log.Add("foxgozar", "core not answering, restarting it")
 					failures = 0
 					a.op.Lock()
 					fw.Down()
@@ -663,14 +685,14 @@ func (a *App) loop(ctx context.Context) {
 		for _, s := range st.Subs {
 			if sub.Due(s, time.Now()) {
 				if err := a.UpdateSub(ctx, s.ID); err != nil {
-					a.Log.Add("zgzd", "subscription "+s.Name+": "+err.Error())
+					a.Log.Add("foxgozar", "subscription "+s.Name+": "+err.Error())
 				}
 			}
 		}
 		// Rule-sets weekly.
 		if ruleset.Age(a.RuleDir(), gen.RSIranIP) > 7*24*time.Hour && a.Phase0() == Connected {
 			if err := a.UpdateRuleSets(ctx); err != nil {
-				a.Log.Add("zgzd", "rule-sets: "+err.Error())
+				a.Log.Add("foxgozar", "rule-sets: "+err.Error())
 			}
 		}
 		// Measurements reach flash only twice an hour.
@@ -732,6 +754,40 @@ func (a *App) Warm() {
 		return
 	}
 	if err := a.warmLocked(st); err != nil {
-		a.Log.Add("zgzd", "warm start: "+err.Error())
+		a.Log.Add("foxgozar", "warm start: "+err.Error())
 	}
+}
+
+// syncXrayLocked runs Xray when there are nodes only Xray speaks, with a
+// config matching them, and stops it when there are none. Xray has no
+// in-place reload, so it restarts only when its own nodes change.
+func (a *App) syncXrayLocked(st state.State) error {
+	if !gen.HasXray(st.Nodes) {
+		a.xr.Stop()
+		a.xrayHash = [32]byte{}
+		return nil
+	}
+	if _, err := os.Stat(a.XrayBin()); err != nil {
+		a.Log.Add("foxgozar", "Xray is not installed yet; its nodes are skipped until it is")
+		return nil
+	}
+	b, err := gen.BuildXray(st)
+	if err != nil {
+		return err
+	}
+	h := sha256.Sum256(b)
+	if h == a.xrayHash && a.xr.Running() {
+		return nil
+	}
+	if err := state.WriteFileAtomic(filepath.Join(a.Paths.Run, "xray.json"), b, 0o600); err != nil {
+		return err
+	}
+	if a.xr.Running() {
+		if err := a.xr.Validate(); err != nil {
+			return fmt.Errorf("config rejected by Xray: %w", err)
+		}
+		a.xr.Stop()
+	}
+	a.xrayHash = h
+	return a.xr.Start()
 }

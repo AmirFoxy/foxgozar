@@ -1,4 +1,4 @@
-// mkpkg builds zgzd for OpenWrt targets and packs .ipk files, without the
+// mkpkg builds foxgozar for OpenWrt targets and packs .ipk files, without the
 // OpenWrt SDK: an .ipk is a gzipped tar of debian-binary, control.tar.gz and
 // data.tar.gz.
 //
@@ -82,11 +82,11 @@ func main() {
 		}
 		bin, ok := built[t]
 		if !ok {
-			bin = filepath.Join(*out, "zgzd-"+t.goarch+t.goarm+t.gomips+t.go386)
+			bin = filepath.Join(*out, "foxgozar-"+t.goarch+t.goarm+t.gomips+t.go386)
 			build(t, *version, bin)
 			built[t] = bin
 		}
-		name := fmt.Sprintf("zirgozar_%s_%s.ipk", *version, arch)
+		name := fmt.Sprintf("foxgozar_%s_%s.ipk", *version, arch)
 		must(os.WriteFile(filepath.Join(*out, name), ipk(arch, *version, bin), 0o644))
 		fmt.Println(name)
 		stageAPK(filepath.Join(*out, "apk", arch), arch, *version, bin)
@@ -95,8 +95,8 @@ func main() {
 
 func build(t target, version, out string) {
 	cmd := exec.Command("go", "build", "-trimpath",
-		"-ldflags", "-s -w -buildid= -X main.version="+version+" -X zirgozar/internal/core.Variant="+t.variant,
-		"-o", out, "./cmd/zgzd")
+		"-ldflags", "-s -w -buildid= -X main.version="+version+" -X foxgozar/internal/core.Variant="+t.variant,
+		"-o", out, "./cmd/foxgozar")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+t.goarch)
 	if t.goarm != "" {
 		cmd.Env = append(cmd.Env, "GOARM="+t.goarm)
@@ -131,33 +131,22 @@ func readBin(p string) []byte {
 
 func dataFiles(bin string) []file {
 	data := []file{
-		{"./usr/bin/zgzd", 0o755, readBin(bin)},
-		{"./etc/init.d/zirgozar", 0o755, readText("files/zirgozar.init")},
-		{"./usr/share/rpcd/acl.d/luci-app-zirgozar.json", 0o644, readText("files/luci/acl.json")},
-		{"./usr/share/luci/menu.d/luci-app-zirgozar.json", 0o644, readText("files/luci/menu.json")},
+		{"./usr/bin/foxgozar", 0o755, readBin(bin)},
+		{"./etc/init.d/foxgozar", 0o755, readText("files/foxgozar.init")},
+		{"./usr/share/rpcd/acl.d/luci-app-foxgozar.json", 0o644, readText("files/luci/acl.json")},
+		{"./usr/share/luci/menu.d/luci-app-foxgozar.json", 0o644, readText("files/luci/menu.json")},
 	}
 	views, _ := filepath.Glob("files/luci/view/*.js")
 	for _, v := range views {
-		data = append(data, file{"./www/luci-static/resources/view/zirgozar/" + filepath.Base(v), 0o644, readText(v)})
+		data = append(data, file{"./www/luci-static/resources/view/foxgozar/" + filepath.Base(v), 0o644, readText(v)})
 	}
 	return data
 }
 
-// The old shell-based Zirgozar is stopped first: two tproxy setups at once
-// leave the network unusable. IPKG_INSTROOT is set only in image builds.
-const preinst = `#!/bin/sh
-[ -n "$IPKG_INSTROOT" ] && exit 0
-if [ -x /etc/init.d/zirgozar ] && ! [ -x /usr/bin/zgzd ]; then
-	/etc/init.d/zirgozar stop >/dev/null 2>&1
-	/etc/init.d/zirgozar disable >/dev/null 2>&1
-fi
-exit 0
-`
-
 const postinst = `#!/bin/sh
 [ -n "$IPKG_INSTROOT" ] && exit 0
-/etc/init.d/zirgozar enable
-/etc/init.d/zirgozar restart
+/etc/init.d/foxgozar enable
+/etc/init.d/foxgozar restart
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache 2>/dev/null
 /etc/init.d/rpcd reload 2>/dev/null
 exit 0
@@ -165,8 +154,8 @@ exit 0
 
 const prerm = `#!/bin/sh
 [ -n "$IPKG_INSTROOT" ] && exit 0
-/etc/init.d/zirgozar stop
-/etc/init.d/zirgozar disable
+/etc/init.d/foxgozar stop
+/etc/init.d/foxgozar disable
 exit 0
 `
 
@@ -176,21 +165,17 @@ func ipk(arch, version, bin string) []byte {
 	for _, f := range data {
 		size += len(f.data)
 	}
-	control := fmt.Sprintf(`Package: zirgozar
+	control := fmt.Sprintf(`Package: foxgozar
 Version: %s
 Depends: libc, kmod-nft-tproxy, ca-bundle
-Conflicts: luci-app-zirgozar
-Replaces: luci-app-zirgozar
-Source: https://github.com/dreamboxone/zirgozar
 License: AGPL-3.0-or-later
 Section: net
 Architecture: %s
 Installed-Size: %d
-Description: Zirgozar - fast transparent proxy for OpenWrt (sing-box core)
+Description: FoxGozar - fast transparent proxy for OpenWrt (sing-box core)
 `, version, arch, size)
 	ctl := tgz([]file{
 		{"./control", 0o644, []byte(control)},
-		{"./preinst", 0o755, []byte(preinst)},
 		{"./postinst", 0o755, []byte(postinst)},
 		{"./prerm", 0o755, []byte(prerm)},
 	})

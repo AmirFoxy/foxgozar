@@ -1,14 +1,14 @@
-// zgzd is the Zirgozar daemon and its command line.
+// foxgozar is the FoxGozar daemon and its command line.
 //
-//	zgzd run                  the service (procd starts this)
-//	zgzd status               state of the tunnel
-//	zgzd start | stop | restart
-//	zgzd import < links.txt   add share links (or a sing-box JSON)
-//	zgzd sub URL              add a subscription
-//	zgzd test                 measure every node
-//	zgzd select ID|auto
-//	zgzd nodes | logs | config
-//	zgzd update sing-box|xray|rules
+//	foxgozar run                  the service (procd starts this)
+//	foxgozar status               state of the tunnel
+//	foxgozar start | stop | restart
+//	foxgozar import < links.txt   add share links (or a sing-box JSON)
+//	foxgozar sub URL              add a subscription
+//	foxgozar test                 measure every node
+//	foxgozar select ID|auto
+//	foxgozar nodes | logs | config
+//	foxgozar update sing-box|xray|rules
 package main
 
 import (
@@ -27,9 +27,9 @@ import (
 	"syscall"
 	"time"
 
-	"zirgozar/internal/api"
-	"zirgozar/internal/app"
-	"zirgozar/internal/state"
+	"foxgozar/internal/api"
+	"foxgozar/internal/app"
+	"foxgozar/internal/state"
 )
 
 var version = "dev"
@@ -42,9 +42,9 @@ func env(k, def string) string {
 }
 
 var paths = app.Paths{
-	Etc: env("ZGZ_ETC", "/etc/zirgozar"),
-	Bin: env("ZGZ_BIN", "/usr/share/zirgozar/bin"),
-	Run: env("ZGZ_RUN", "/var/run/zirgozar"),
+	Etc: env("FGZ_ETC", "/etc/foxgozar"),
+	Bin: env("FGZ_BIN", "/usr/share/foxgozar/bin"),
+	Run: env("FGZ_RUN", "/var/run/foxgozar"),
 }
 
 func main() {
@@ -70,7 +70,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: zgzd run | status | start | stop | restart | import | sub URL | test | select ID | nodes | logs | config | update sing-box|xray|rules | version")
+	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | nodes | logs | config | update sing-box|xray|rules | version")
 	os.Exit(2)
 }
 
@@ -80,7 +80,7 @@ func run() error {
 		return err
 	}
 	a := app.New(paths, st)
-	a.Log.Add("zgzd", "zirgozar "+version+" starting")
+	a.Log.Add("foxgozar", "foxgozar "+version+" starting")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer cancel()
@@ -116,7 +116,7 @@ func run() error {
 func call(method, path string, body any, out any) error {
 	b, err := os.ReadFile(filepath.Join(paths.Etc, "state.json"))
 	if err != nil {
-		return fmt.Errorf("is zgzd installed? %w", err)
+		return fmt.Errorf("is foxgozar installed? %w", err)
 	}
 	var st state.State
 	st.Settings = state.Defaults()
@@ -133,7 +133,7 @@ func call(method, path string, body any, out any) error {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 5 * time.Minute}).Do(req)
 	if err != nil {
-		return fmt.Errorf("zgzd is not running? %w", err)
+		return fmt.Errorf("foxgozar is not running? %w", err)
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
@@ -252,7 +252,7 @@ func client(cmd string, args []string) error {
 		if len(args) == 0 {
 			return call("GET", "/api/settings", nil, nil)
 		}
-		// zgzd settings key=value ...
+		// foxgozar settings key=value ...
 		patch := map[string]any{}
 		for _, kv := range args {
 			k, v, _ := strings.Cut(kv, "=")
