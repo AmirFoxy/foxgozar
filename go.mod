@@ -5,7 +5,7 @@ go 1.26.0
 require rsc.io/qr v0.2.0
 
 require (
-	github.com/dop251/goja v0.0.0-20261029153331-f81816846776
+	github.com/dop251/goja v0.0.0-20261031103838-cf2ff0ec0b31
 	gopkg.in/yaml.v3 v3.0.1
 )
 
