@@ -103,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/config", s.config)
 	h("GET /api/usage", s.usage)
 	h("GET /api/uptime", s.uptime)
+	h("GET /api/health", s.health)
 	h("POST /api/doctor", s.doctor)
 	h("POST /api/doctor/apply", s.doctorApply)
 	h("GET /api/speedtest", s.speedResults)
@@ -1013,6 +1014,10 @@ func (s *Server) doctorApply(w http.ResponseWriter, r *http.Request) (any, error
 		return nil, err
 	}
 	return nil, s.App.ApplyDoctor(r.Context(), req.Site, req.Target)
+}
+
+func (s *Server) health(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.Health(r.Context()), nil
 }
 
 func (s *Server) uptime(w http.ResponseWriter, r *http.Request) (any, error) {

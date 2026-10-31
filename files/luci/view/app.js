@@ -76,6 +76,14 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		health: 'Health check', healthHint: 'Is the protection doing its job right now: tunnel, exit, DNS, IPv6.', healthGo: 'Check', healthAgain: 'Check again',
+		h_tunnel: 'Tunnel', h_tunnel_ok: 'connected', h_tunnel_bad: 'not connected: traffic goes out without it',
+		h_exit: 'Exit', h_exit_ok: 'sites see {0}', h_exit_bad: 'sites see an Iranian address or nothing ({0})',
+		h_dns: 'DNS', h_dns_ok: 'names are asked through the tunnel (resolver {0})', h_dns_bad: 'names leak around the tunnel (resolver {0})', h_dns_warn: 'the DNS check got no answer', h_dns_info: 'with Fake IP on, this cannot be checked',
+		h_ipv6: 'IPv6', h_ipv6_ok_none: 'this line has no IPv6: nothing to leak', h_ipv6_ok_covered: 'covered', h_ipv6_warn: 'the line has IPv6 and the tunnel is off: IPv6 goes out unprotected',
+		h_killswitch: 'Kill switch', h_killswitch_ok: 'on', h_killswitch_info: 'off: if the tunnel drops, devices go out without it',
+		h_rulesets: 'Rule-sets', h_rulesets_ok: 'up to date', h_rulesets_warn: 'not updated for {0} days', h_rulesets_warn_missing: 'missing: Iranian sites may go through the tunnel',
+		h_subs: 'Subscriptions', h_subs_ok: 'updating fine', h_subs_warn: 'update failing: {0}',
 		doctor: 'Site doctor', doctorHint: 'A site does not open? Type it: FoxGozar tries it directly and through every server, says what is wrong, and makes the rule that fixes it.', doctorPh: 'Site, e.g. example.com', doctorGo: 'Check',
 		drOpens: 'opens', drChallenge: 'answers (a robot check: fine in a browser)', drSanctioned: 'this service refuses Iran', drFilteredDns: 'filtered (Iran’s filter answered)', drFilteredSni: 'filtered (the connection is cut)',
 		drCountry: 'the site refuses this country', drRefused: 'the site refused ({0})', drTimeout: 'no answer', drTls: 'secure connection failed', drDns: 'name not found', drError: 'error',
@@ -194,6 +202,14 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		health: 'بررسی سلامت', healthHint: 'آیا محافظت الان درست کار می‌کند: تونل، خروجی، DNS، IPv6.', healthGo: 'بررسی', healthAgain: 'بررسی دوباره',
+		h_tunnel: 'تونل', h_tunnel_ok: 'وصل است', h_tunnel_bad: 'وصل نیست: ترافیک بدون تونل بیرون می‌رود',
+		h_exit: 'خروجی', h_exit_ok: 'سایت‌ها این را می‌بینند: {0}', h_exit_bad: 'سایت‌ها آدرس ایرانی یا هیچ می‌بینند ({0})',
+		h_dns: 'DNS', h_dns_ok: 'اسم سایت‌ها از داخل تونل پرسیده می‌شود؛ سرور DNS: {0}', h_dns_bad: 'اسم سایت‌ها بیرون از تونل لو می‌رود؛ سرور DNS: {0}', h_dns_warn: 'بررسی DNS جوابی نگرفت', h_dns_info: 'با Fake IP روشن، این قابل بررسی نیست',
+		h_ipv6: 'IPv6', h_ipv6_ok_none: 'این خط IPv6 ندارد: چیزی لو نمی‌رود', h_ipv6_ok_covered: 'پوشش داده شده', h_ipv6_warn: 'خط IPv6 دارد و تونل خاموش است: IPv6 بدون محافظت بیرون می‌رود',
+		h_killswitch: 'کیل‌سوییچ', h_killswitch_ok: 'روشن', h_killswitch_info: 'خاموش: اگر تونل قطع شود، دستگاه‌ها بدون آن بیرون می‌روند',
+		h_rulesets: 'Rule-setها', h_rulesets_ok: 'به‌روز', h_rulesets_warn: '{0} روز است به‌روز نشده', h_rulesets_warn_missing: 'وجود ندارند: سایت‌های ایرانی ممکن است از تونل بروند',
+		h_subs: 'اشتراک‌ها', h_subs_ok: 'به‌روزرسانی سالم', h_subs_warn: 'به‌روزرسانی خطا می‌دهد: {0}',
 		doctor: 'دکتر سایت', doctorHint: 'سایتی باز نمی‌شود؟ آدرسش را بنویس: فاکس‌گذر آن را مستقیم و از هر سرور امتحان می‌کند، می‌گوید مشکل چیست و قانونی که درستش می‌کند را می‌سازد.', doctorPh: 'آدرس سایت، مثلاً example.com', doctorGo: 'بررسی',
 		drOpens: 'باز می‌شود', drChallenge: 'جواب می‌دهد (بررسی ربات؛ در مرورگر مشکلی نیست)', drSanctioned: 'این سرویس ایران را تحریم کرده', drFilteredDns: 'فیلتر (فیلترینگ ایران جواب داد)', drFilteredSni: 'فیلتر (اتصال قطع می‌شود)',
 		drCountry: 'سایت این کشور را نمی‌پذیرد', drRefused: 'سایت رد کرد ({0})', drTimeout: 'جواب نداد', drTls: 'اتصال امن برقرار نشد', drDns: 'آدرس پیدا نشد', drError: 'خطا',
@@ -1644,6 +1660,30 @@ function section(title, kids) {
 	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, title), h('div', { 'class': 'fgz-panel' }, kids)]);
 }
 
+// The health check: is the protection doing what it should, right now.
+function healthCard() {
+	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
+		btn.textContent = t('testing');
+		busy(btn, api('GET', '/api/health').then(function(r) { S.health = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); btn.textContent = t('healthGo'); }));
+	} }, S.health ? t('healthAgain') : t('healthGo'));
+	var rows = (S.health || []).map(function(it) {
+		var key = 'h_' + it.id + '_' + it.state, d = it.detail || '';
+		var shown = '⁨' + d + '⁩'; // an address and country keep their order in Persian
+		// A string for this exact detail first (h_ipv6_ok_none), else the state's own.
+		var text = t(key + '_' + d, shown);
+		if (text === key + '_' + d) text = t(key, shown);
+		return h('div', { 'class': 'fgz-hrow', 'data-state': it.state }, [
+			h('span', { 'class': 'mark' }, it.state === 'ok' ? '✓' : it.state === 'bad' ? '✕' : it.state === 'warn' ? '!' : 'i'),
+			h('b', {}, t('h_' + it.id)),
+			h('small', { dir: 'auto' }, text)
+		]);
+	});
+	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, t('health')), h('div', { 'class': 'fgz-panel' }, [
+		h('div', { 'class': 'fgz-bar' }, [h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('healthHint')), btn])
+	].concat(rows))]);
+}
+
 function panelSettings() {
 	if (!S.settings) return h('div');
 	var int = function(v) { return parseInt(v, 10) || 0; };
@@ -1662,6 +1702,7 @@ function panelSettings() {
 		]);
 	};
 	return h('div', {}, [
+		healthCard(),
 		section(t('sConnection'), [
 			testTargetField(),
 			inputField('test_interval', t('testInterval'), null, 'number', int),

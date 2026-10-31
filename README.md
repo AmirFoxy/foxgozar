@@ -26,7 +26,20 @@ with a light or dark theme.
   Starlink on the router), and a `dualwan` mode that turns the second port into a domestic line
 - **Blocks ads, malware and phishing** for every device
 - **Kill switch:** devices stay offline instead of going out unprotected when the tunnel drops
-- **Real game ping** to the servers of Dota 2, CS2, League of Legends, Valorant and more
+- **Real game ping** to the servers of Dota 2, CS2, League of Legends, Valorant and more,
+  with jitter and spikes, a path of its own per game (tunnel, direct or a chosen server), a check
+  of whether a game's own servers are better direct (automatic after every match), and any game
+  added by name from Steam's store
+- **Anti-lag** (OpenWrt's SQM with cake): ping stays low while others download
+- **Game mode:** background updates wait while a game is being played; game downloads
+  (Steam, Epic, Battle.net, Riot) can skip the tunnel
+- **Site doctor:** a site that does not open is tried directly and through every server, and the
+  rule that fixes it is one press away
+- **Speed test** per server, with how steadily its connections come up; unsteady servers are
+  left out of the automatic choice
+- **Uptime history** of every server for the last week, and **monthly traffic** per server
+- **Health check:** exit address and country, DNS leaks, IPv6, kill switch, at a glance
+- **Rescue:** when every server stops answering, TLS fragment and multiplex are tried by themselves
 - **QR codes** to use the same servers on your phone outside home
 - Works with share links (vless, vmess, trojan, ss, hy2, tuic …), subscriptions,
   Clash / Clash Meta configs and Xray / sing-box JSON configs

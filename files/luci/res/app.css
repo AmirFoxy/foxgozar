@@ -993,6 +993,20 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 }
 .fgz-route label { color: var(--ink-2); font-weight: 600; }
 .fgz-route small { grid-column: 1 / -1; color: var(--ink-3); font-size: 13px; }
+/* the health check: a mark, what was checked, what it found */
+.fgz-hrow {
+	display: grid; grid-template-columns: 24px minmax(0, 9em) minmax(0, 1fr); gap: 12px; align-items: center;
+	padding: 10px 18px; border-block-start: 1px solid var(--line); font-size: 14px;
+}
+.fgz-hrow .mark {
+	width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+	font-size: 13px; font-weight: 800; color: #fff; background: var(--ink-3);
+}
+.fgz-hrow[data-state="ok"] .mark { background: var(--ok); }
+.fgz-hrow[data-state="bad"] .mark { background: var(--bad); }
+.fgz-hrow[data-state="warn"] .mark { background: var(--fox); }
+.fgz-hrow small { color: var(--ink-2); font-size: 13px; }
+@media (max-width: 720px) { .fgz-hrow { grid-template-columns: 24px minmax(0, 1fr); } .fgz-hrow small { grid-column: 2; } }
 /* the site doctor: one row per way to the site, then the advice */
 .fgz-doctor { display: grid; }
 .fgz-drow {
