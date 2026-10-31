@@ -183,23 +183,6 @@ You can close the terminal windows.
 To choose how each device connects, open the **Devices** tab. The clock button
 next to a device sets its offline hours.
 
-### Another country for chosen sites (Psiphon)
-
-Some things depend on the country you appear to be in, such as music in some
-Instagram videos. In **Routing → Another country for chosen sites**, FoxGozar
-can send only the sites you list out of another country through Psiphon (free),
-while everything else, your logins included, stays on your own server.
-
-1. Paste your Psiphon config (a JSON with `PropagationChannelId` and
-   `SponsorId`, issued by Psiphon Inc.). FoxGozar has none of its own.
-2. Pick the exit country and the sites (**Instagram music** fills in a preset),
-   then turn it on. The first time, the router downloads Psiphon (about 34 MB;
-   available for x86_64, arm64 and armv7 routers).
-3. The sites go through Psiphon only while it is connected; until then, and if it
-   drops, they keep using your tunnel. **Check exit** shows the address sites see.
-
-Whether a site behaves differently this way is up to that site.
-
 ### For a shutdown: Starlink plus the domestic network
 
 If the international internet is cut but the domestic network still works, and
