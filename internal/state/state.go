@@ -207,7 +207,10 @@ type State struct {
 	// last twelve months.
 	Usage       map[string]map[string][2]int64 `json:"usage,omitempty"`
 	HiddenGames []string                       `json:"hidden_games,omitempty"`
-	CustomGames []CustomGame                   `json:"custom_games,omitempty"`
+	// Steam app id -> its header picture's address, as Steam's own API
+	// gives it (newer games keep pictures under hashed paths).
+	ArtCache    map[string]string `json:"art_cache,omitempty"`
+	CustomGames []CustomGame      `json:"custom_games,omitempty"`
 }
 
 // CustomGame is a game the user added by name; FoxGozar found the rest

@@ -61,7 +61,8 @@ type App struct {
 	inRescue         bool   // a rescue round is changing settings
 	lastRescue       string // what the last successful one changed
 	lag              *antiLagState
-	gaming           bool // a game is being played: background jobs wait
+	gaming           bool                            // a game is being played: background jobs wait
+	gameSeen         map[string]map[string]time.Time // game -> its servers seen in play
 	usage            *usageCounter
 	services         *ServiceResults
 	games            *GameResults

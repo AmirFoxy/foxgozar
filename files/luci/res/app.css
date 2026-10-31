@@ -510,7 +510,7 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 .fgz-btn.danger { color: var(--bad); }
 .fgz-btn[aria-busy="true"] { opacity: 0.6; cursor: progress; }
 
-.fgz input[type="text"], .fgz input[type="number"], .fgz input[type="url"], .fgz input[type="time"], .fgz select, .fgz textarea {
+.fgz input[type="text"], .fgz input[type="number"], .fgz input[type="url"], .fgz input[type="time"], .fgz input[type="search"], .fgz select, .fgz textarea {
 	width: 100%;
 	color: var(--ink);
 	background: var(--paper);
@@ -862,68 +862,88 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 }
 
 /* ------------------------------------------------------------ games
- * A mosaic of poster tiles (art from the publisher's own CDN, under a dark
- * scrim so the name reads), the best ping on each; the chosen game's
- * servers below it, one row each.
+ * One card per game, three to a row: its picture (from the publisher's own
+ * CDN, under a dark scrim so the name reads) with the best ping and a bin,
+ * then its servers as rows, its own path and the direct check.
  */
-.fgz-mosaic {
+.fgz-gcards {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-	gap: 12px;
-	margin-block-end: 18px;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 16px;
+	align-items: start;
 }
-.fgz-tile {
+.fgz-gcard {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--r-l);
+	overflow: hidden;
+	box-shadow: var(--shadow);
+	min-width: 0;
+}
+.fgz-gcard .art {
 	position: relative;
 	aspect-ratio: 460 / 215;
-	border: 2px solid transparent;
-	border-radius: var(--r-m);
-	overflow: hidden;
-	padding: 0;
-	cursor: pointer;
-	background: linear-gradient(120deg, #2b2f55, #141630);
-	box-shadow: var(--shadow);
 	display: flex;
 	align-items: flex-end;
-	justify-content: space-between;
-	text-align: start;
-	transition: border-color 0.15s, transform 0.15s;
+	background: linear-gradient(120deg, #2b2f55, #141630);
 }
-.fgz-tile:hover { transform: translateY(-2px); }
-.fgz-tile[aria-pressed="true"] { border-color: var(--fox); }
-.fgz-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.fgz-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(8 9 24 / 0.85), rgb(8 9 24 / 0.05) 60%); }
-.fgz-tile .name, .fgz-tile .ping { position: relative; z-index: 1; margin: 8px 10px; }
-.fgz-tile .name { color: #fff; font-weight: 800; font-size: 14px; line-height: 1.2; text-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
-	overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.fgz-tile .ping { flex: none; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgb(0 0 0 / 0.55); color: #fff; }
-.fgz-tile[data-q="great"] .ping, .fgz-tile[data-q="good"] .ping { background: #1f8a4c; }
-.fgz-tile[data-q="ok"] .ping { background: #b66a12; }
-.fgz-tile[data-q="high"] .ping, .fgz-tile[data-q="fail"] .ping { background: #b3261e; }
-.fgz-tile[data-game="valorant"] { background: linear-gradient(120deg, #ff4655, #3a0d17 70%); }
-.fgz-tile[data-game="wow"] { background: linear-gradient(120deg, #1d4b8f, #0b1530 60%, #6b4f12); }
-.fgz-tile[data-game="fortnite"] { background: linear-gradient(120deg, #6c2bd9, #1b1d6b 60%, #0e8fd6); }
+.fgz-gcard .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fgz-gcard .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(8 9 24 / 0.9), rgb(8 9 24 / 0.05) 60%); }
+.fgz-gcard .title { position: relative; z-index: 1; width: 100%; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 12px 14px; }
+.fgz-gcard h4 { margin: 0; color: #fff; font-size: 20px; font-weight: 800; line-height: 1.15; text-shadow: 0 2px 8px rgb(0 0 0 / 0.6); min-width: 0; overflow-wrap: anywhere; }
+.fgz-gcard .ping { flex: none; font-size: 14px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgb(0 0 0 / 0.55); color: #fff; }
+.fgz-gcard[data-q="great"] .ping, .fgz-gcard[data-q="good"] .ping { background: #1f8a4c; }
+.fgz-gcard[data-q="ok"] .ping { background: #b66a12; }
+.fgz-gcard[data-q="high"] .ping, .fgz-gcard[data-q="fail"] .ping { background: #b3261e; }
+.fgz-gcard .bin { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; background: rgb(0 0 0 / 0.5); color: #fff; }
+.fgz-gcard .bin:hover, .fgz-gcard .bin.armed { background: #b3261e; color: #fff; }
+.fgz-gcard[data-game="valorant"] .art { background: linear-gradient(120deg, #ff4655, #3a0d17 70%); }
+.fgz-gcard[data-game="wow"] .art { background: linear-gradient(120deg, #1d4b8f, #0b1530 60%, #6b4f12); }
+.fgz-gcard[data-game="fortnite"] .art { background: linear-gradient(120deg, #6c2bd9, #1b1d6b 60%, #0e8fd6); }
 
-/* one row per game server: city, best path, ping, wobble, spikes */
+/* a server row: the city and the best path to it, the ping and its wobble */
 .fgz-grow {
 	display: grid;
-	grid-template-columns: 10px minmax(0, 1.2fr) minmax(0, 1.3fr) 76px 52px minmax(0, 0.9fr);
-	gap: 12px;
+	grid-template-columns: 9px minmax(0, 1fr) auto;
+	gap: 10px;
 	align-items: center;
-	padding: 11px 18px;
-	border-block-end: 1px solid var(--line);
+	padding: 9px 14px;
+	border-block-start: 1px solid var(--line);
 }
 .fgz-grow .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
 .fgz-grow[data-q="great"] .dot, .fgz-grow[data-q="good"] .dot { background: var(--ok); }
 .fgz-grow[data-q="ok"] .dot { background: var(--fox); }
 .fgz-grow[data-q="high"] .dot, .fgz-grow[data-q="fail"] .dot { background: var(--bad); }
 .fgz-grow .where { min-width: 0; }
-.fgz[dir="rtl"] .fgz-grow .where b { text-align: right; }
-.fgz-grow .where b { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fgz-grow .where small, .fgz-grow .path, .fgz-grow .jit, .fgz-grow .p90 { color: var(--ink-3); font-size: 13px; }
-.fgz-grow .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fgz-grow .ms { font-size: 17px; font-weight: 800; }
+.fgz-grow .where b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz[dir="rtl"] .fgz-grow .where b, .fgz[dir="rtl"] .fgz-grow .where small { text-align: right; }
+.fgz-grow .where small { display: block; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-grow .nums { text-align: end; }
+.fgz-grow .ms { display: block; font-size: 15px; font-weight: 800; white-space: nowrap; }
 .fgz-grow[data-q="great"] .ms { color: var(--ok); }
-.fgz-grow .p90 { color: var(--fox-text); }
+.fgz-grow .nums small { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+
+/* the direct check */
+.fgz-dcheckwrap { display: grid; gap: 8px; padding: 0 14px 14px; }
+.fgz-dcheck { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--r-s); background: var(--sunken); }
+.fgz-dcheck small { color: var(--ink-2); font-size: 13px; }
+.fgz-dcheck[data-advice="direct"] { background: var(--ok-soft); }
+
+/* live search to add games */
+.fgz-gsearch { padding: 0 18px 16px; position: relative; }
+.fgz-gsearch-list { display: grid; gap: 4px; margin-top: 6px; }
+.fgz-gsearch-list:empty { display: none; }
+.fgz-ghit {
+	display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+	padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-s);
+	background: var(--paper); color: var(--ink); cursor: pointer; text-align: start; font: inherit;
+}
+.fgz-ghit:hover:not(:disabled) { border-color: var(--fox); }
+.fgz-ghit:disabled { opacity: 0.6; cursor: default; }
+.fgz-ghit img, .fgz-ghit .noimg { width: 92px; height: 34px; object-fit: cover; border-radius: 4px; background: var(--sunken); }
+.fgz-ghit .n { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-ghit small { color: var(--fox-text); font-weight: 700; font-size: 13px; }
+
 /* a game's own path, under its server rows */
 .fgz-route {
 	display: grid; grid-template-columns: auto minmax(0, 320px); gap: 6px 14px; align-items: center;
@@ -935,9 +955,11 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 .fgz-statusline[data-on="1"] { color: var(--ok); }
 .fgz-gamelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; max-height: 40vh; overflow: auto; }
 @media (max-width: 720px) {
-	.fgz-mosaic { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-	.fgz-grow { grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 4px 10px; padding-inline: 12px; }
-	.fgz-grow .path { grid-column: 2; grid-row: 2; }
-	.fgz-grow .p90 { grid-column: 3 / -1; grid-row: 2; justify-self: end; }
+	.fgz-gcards { grid-template-columns: 1fr; gap: 12px; }
 	.fgz-route { grid-template-columns: 1fr; padding-inline: 14px; }
+	.fgz-ghit { grid-template-columns: 70px minmax(0, 1fr) auto; }
+	.fgz-ghit img, .fgz-ghit .noimg { width: 70px; height: 26px; }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+	.fgz-gcards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

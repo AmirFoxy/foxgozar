@@ -65,6 +65,10 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/games", s.gamesLast)
 	h("POST /api/games/test", s.gamesTest)
 	h("PUT /api/games/{id}/route", s.gameRoute)
+	h("GET /api/games/search", s.searchGames)
+	h("POST /api/games/add", s.addFound)
+	h("POST /api/games/{id}/remove", s.removeFromList)
+	h("POST /api/games/{id}/check", s.checkGameDirect)
 	h("PUT /api/games/hidden", s.hiddenGames)
 	h("POST /api/games/custom", s.addGame)
 	h("DELETE /api/games/custom/{id}", s.removeGame)
@@ -913,6 +917,32 @@ func (s *Server) putAntiLag(w http.ResponseWriter, r *http.Request) (any, error)
 		return nil, err
 	}
 	return s.App.AntiLagStatus(), nil
+}
+
+func (s *Server) searchGames(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.SearchGames(r.Context(), r.URL.Query().Get("q"))
+}
+
+func (s *Server) addFound(w http.ResponseWriter, r *http.Request) (any, error) {
+	var hit app.GameHit
+	if err := decode(r, &hit); err != nil {
+		return nil, err
+	}
+	if err := s.App.AddFound(r.Context(), hit); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
+}
+
+func (s *Server) checkGameDirect(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.CheckGameDirect(r.Context(), r.PathValue("id"))
+}
+
+func (s *Server) removeFromList(w http.ResponseWriter, r *http.Request) (any, error) {
+	if err := s.App.RemoveFromList(r.PathValue("id")); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
 }
 
 func (s *Server) hiddenGames(w http.ResponseWriter, r *http.Request) (any, error) {

@@ -76,6 +76,11 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		searchGamesPh: 'Search a game to add…', searching: 'Searching…', noGameFound: 'Nothing found', inList: 'on the list', restoreGame: 'bring back', addThis: 'add',
+		removeGame: 'Remove from the list', removeGameAsk: 'Press again to remove {0}',
+		checkDirect: 'Check game server', checkDirectHint: 'Pings the servers this game was played on, outside the tunnel: is the game itself reachable directly, and faster?',
+		playFirst: 'Play one match first: FoxGozar learns the game’s servers from it.', noPingAnswer: 'The game’s servers do not answer pings, so this cannot be told. You can still try direct.',
+		directBetter: 'The game server is reachable directly: {0} ms, through the tunnel {1} ms. The launcher stays on the tunnel.', tunnelBetter: 'Reachable directly ({0} ms), but the tunnel is faster ({1} ms).', useDirect: 'Play direct',
 		gameDl: 'Game downloads go direct', gameDlHint: 'Steam, Epic, Battle.net and Riot downloads and updates skip the tunnel: they are huge, and this spares your server’s traffic and speed. Logins and the launchers themselves stay on the tunnel.',
 		chooseGames: 'Choose games', chooseGamesHint: 'Tick the games to show. To add one, type its name: FoxGozar finds it in Steam’s store and fetches its picture.', addGame: 'Add a game', addGamePh: 'Game name, e.g. Rust', noGamesShown: 'No games shown. Choose some with “Choose games”.',
 		gameAdded: '{0} added', gameAddedNoArt: '{0} added; Steam does not have it, so it has no picture', customGameHint: 'Its server cities are not known, so every measured city is shown: play on the one with the best ping.',
@@ -180,6 +185,11 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		searchGamesPh: 'جستجوی بازی برای افزودن…', searching: 'در حال جستجو…', noGameFound: 'چیزی پیدا نشد', inList: 'در لیست است', restoreGame: 'برگرداندن', addThis: 'افزودن',
+		removeGame: 'حذف از لیست', removeGameAsk: 'برای حذف {0} دوباره بزنید',
+		checkDirect: 'بررسی سرور بازی', checkDirectHint: 'سرورهایی را که این بازی رویشان اجرا شده، بیرون از تونل پینگ می‌کند: آیا خود بازی مستقیم در دسترس است و سریع‌تر؟',
+		playFirst: 'اول یک بازی کامل بکن: فاکس‌گذر سرورهای بازی را از همان یاد می‌گیرد.', noPingAnswer: 'سرورهای این بازی به پینگ جواب نمی‌دهند، پس نمی‌شود فهمید. می‌توانی مستقیم را امتحان کنی.',
+		directBetter: 'سرور بازی مستقیم در دسترس است: {0} میلی‌ثانیه، از تونل {1}. لانچر از تونل می‌ماند.', tunnelBetter: 'مستقیم در دسترس است ({0} میلی‌ثانیه)، ولی تونل سریع‌تر است ({1}).', useDirect: 'بازی مستقیم',
 		gameDl: 'دانلود بازی‌ها مستقیم', gameDlHint: 'دانلود و آپدیت Steam، Epic، Battle.net و Riot از تونل رد نمی‌شوند: حجمشان زیاد است و این‌طوری حجم و سرعت سرورتان حفظ می‌شود. لاگین و خود لانچرها از تونل می‌روند.',
 		chooseGames: 'انتخاب بازی‌ها', chooseGamesHint: 'بازی‌هایی را که می‌خواهید نشان داده شوند تیک بزنید. برای افزودن، اسمش را بنویسید: فاکس‌گذر آن را در فروشگاه Steam پیدا می‌کند و تصویرش را می‌آورد.', addGame: 'افزودن بازی', addGamePh: 'اسم بازی، مثلاً Rust', noGamesShown: 'هیچ بازی‌ای نشان داده نمی‌شود. از «انتخاب بازی‌ها» انتخاب کنید.',
 		gameAdded: '{0} اضافه شد', gameAddedNoArt: '{0} اضافه شد؛ Steam آن را ندارد، پس تصویری ندارد', customGameHint: 'شهر سرورهای این بازی معلوم نیست، پس همه شهرهای اندازه‌گیری‌شده نشان داده می‌شوند: روی شهری بازی کنید که بهترین پینگ را دارد.',
@@ -1147,9 +1157,11 @@ function pingQuality(ms) {
 // Banner art loads from the publisher's own CDN when the page is viewed;
 // nothing is bundled. Without art the banner falls back to its colours.
 function gameArt(game) {
-	// The header image: wide and small, made for tiles.
+	// Steam's own address when FoxGozar has looked it up (newer games keep
+	// pictures under hashed paths); the classic one otherwise.
+	if (game.art) return game.art;
 	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/header.jpg';
-	return game.art || '';
+	return '';
 }
 
 // How a path to a city scores for a game: the 90th percentile carries the
@@ -1181,7 +1193,6 @@ function panelGames() {
 	var conns = Object.keys(res).filter(function(id) { return names[id]; });
 	var hidden = g.hidden || [];
 	var games = (g.games || []).filter(function(x) { return hidden.indexOf(x.id) < 0; });
-	if (!games.some(function(x) { return x.id === S.gameOpen; })) S.gameOpen = games.length ? games[0].id : null;
 
 	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
 		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
@@ -1189,95 +1200,125 @@ function panelGames() {
 		busy(btn, api('POST', '/api/games/test').then(function(r) { S.games = r; renderPanel(); })
 			.catch(function(e) { toast(e.message); btn.textContent = t('testGames'); }));
 	} }, conns.length ? t('retestGames') : t('testGames'));
-	var head = h('div', { 'class': 'fgz-panel fgz-section' }, [h('div', { 'class': 'fgz-bar' }, [
-		h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')),
-		h('button', { 'class': 'fgz-btn', onclick: dialogGames }, t('chooseGames')),
-		btn])]);
+	var head = h('div', { 'class': 'fgz-panel fgz-section' }, [
+		h('div', { 'class': 'fgz-bar' }, [h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')), btn]),
+		gameSearch()
+	]);
 
-	// The mosaic: every shown game, its best ping on the tile.
-	var tiles = games.map(function(game) {
-		var best = null;
-		game.servers.forEach(function(sv) {
-			var c = gameCity(g, conns, sv.region);
-			if (c && (!best || c.score < best.score)) best = c;
-		});
-		var q = pingQuality(best ? best.ms : -1);
-		var art = gameArt(game);
-		var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
-		if (img) img.addEventListener('error', function() { img.remove(); });
-		return h('button', { type: 'button', 'class': 'fgz-tile', 'data-game': game.id, 'data-q': conns.length ? q[0] : 'none',
-			'aria-pressed': S.gameOpen === game.id ? 'true' : 'false',
-			onclick: function() { S.gameOpen = game.id; renderPanel(); } }, present([
-			img,
-			h('span', { 'class': 'name', dir: 'ltr' }, game.name),
-			conns.length ? h('span', { 'class': 'ping num', dir: 'ltr' }, best ? num(best.ms) + ' ms' : '—') : null
-		]));
-	});
-
-	var open = games.filter(function(x) { return x.id === S.gameOpen; })[0];
 	return h('div', {}, present([
 		antiLagCard(), head,
-		games.length ? h('div', { 'class': 'fgz-mosaic' }, tiles) : h('div', { 'class': 'fgz-panel' }, h('div', { 'class': 'fgz-empty' }, t('noGamesShown'))),
-		open ? gameDetail(open, g, conns, names) : null
+		games.length ? h('div', { 'class': 'fgz-gcards' }, games.map(function(game) { return gameCard(game, g, conns, names); }))
+			: h('div', { 'class': 'fgz-panel' }, h('div', { 'class': 'fgz-empty' }, t('noGamesShown')))
 	]));
 }
 
-// One game's servers, one row each: the best path to its city, the ping,
-// how much it wobbles, and what a bad moment looks like.
-function gameDetail(game, g, conns, names) {
-	var custom = game.id.indexOf('my') === 0;
+// One game, all of it on its card: picture, best ping, its servers as rows,
+// its own path and the direct check, and a bin to take it off the list.
+function gameCard(game, g, conns, names) {
+	var best = null;
 	var rows = game.servers.map(function(sv) {
 		var c = gameCity(g, conns, sv.region);
+		if (c && (!best || c.score < best.score)) best = c;
 		var q = pingQuality(c ? c.ms : -1);
 		return h('div', { 'class': 'fgz-grow', 'data-q': conns.length ? q[0] : 'none' }, [
 			h('span', { 'class': 'dot' }),
-			h('div', { 'class': 'where' }, present([h('b', { dir: 'auto' }, sv.name),
-				regionName(sv.region) === sv.name ? null : h('small', {}, regionName(sv.region))])),
-			h('small', { 'class': 'path', dir: 'auto' }, c ? names[c.id] : conns.length ? t('unreachable') : t('notMeasured')),
-			h('b', { 'class': 'ms num', dir: 'ltr' }, c ? num(c.ms) + ' ms' : '—'),
-			h('small', { 'class': 'jit num', dir: 'ltr', title: t('jitterHint') }, c ? '±' + num(c.jitter) : ''),
-			h('small', { 'class': 'p90 num', dir: 'ltr', title: t('p90Hint') }, c && c.p90 > 0 && c.p90 - c.ms >= 30 ? t('spikesTo', num(c.p90)) : '')
+			h('div', { 'class': 'where' }, [h('b', { dir: 'auto' }, sv.name),
+				h('small', { dir: 'auto' }, c ? names[c.id] : conns.length ? t('unreachable') : t('notMeasured'))]),
+			h('div', { 'class': 'nums' }, [
+				h('b', { 'class': 'ms num', dir: 'ltr' }, c ? num(c.ms) + ' ms' : '—'),
+				h('small', { 'class': 'num', dir: 'ltr', title: c && c.p90 > 0 && c.p90 - c.ms >= 30 ? t('p90Hint') : t('jitterHint') },
+					c ? (c.p90 > 0 && c.p90 - c.ms >= 30 ? t('spikesTo', num(c.p90)) : '±' + num(c.jitter)) : '')
+			])
 		]);
 	});
-	return h('div', { 'class': 'fgz-section' }, [h('div', { 'class': 'fgz-panel fgz-gdetail' }, present([
-		h('div', { 'class': 'fgz-bar' }, present([
-			h('b', { 'class': 'grow', dir: 'ltr' }, game.name),
-			custom ? h('button', { 'class': 'fgz-btn danger', onclick: function(e) {
-				busy(e.currentTarget, api('DELETE', '/api/games/custom/' + game.id).then(function(r) { S.games = r; renderPanel(); })
-					.catch(function(err) { toast(err.message); }));
-			} }, t('remove')) : null
+	var q = pingQuality(best ? best.ms : -1);
+	var art = gameArt(game);
+	var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
+	if (img) img.addEventListener('error', function() { img.remove(); });
+	var bin = h('button', { 'class': 'fgz-icon bin', title: t('removeGame'), 'aria-label': t('removeGame'), onclick: function(e) {
+		var b = e.currentTarget;
+		if (!confirmInline(b, t('removeGameAsk', game.name))) return;
+		busy(b, api('POST', '/api/games/' + game.id + '/remove').then(function(r) { S.games = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); }));
+	} }, [icon('trash')]);
+	var routable = (g.routable || {})[game.id];
+	return h('article', { 'class': 'fgz-gcard', 'data-game': game.id, 'data-q': conns.length ? q[0] : 'none' }, present([
+		h('div', { 'class': 'art' }, present([
+			img, bin,
+			h('div', { 'class': 'title' }, present([
+				h('h4', { dir: 'ltr' }, game.name),
+				conns.length ? h('span', { 'class': 'ping num', dir: 'ltr' }, best ? num(best.ms) + ' ms' : '—') : null
+			]))
 		])),
-		custom ? h('p', { 'class': 'fgz-help', style: 'padding-top:10px' }, t('customGameHint')) : null
-	].concat(rows).concat([
-		(g.routable || {})[game.id] ? gameRouteBar(game, g, conns, names, (g.routes || {})[game.id] || '') : null
-	])))]);
+		game.id.indexOf('my') === 0 ? h('p', { 'class': 'fgz-help', style: 'padding:10px 14px 0' }, t('customGameHint')) : null,
+		h('div', { 'class': 'rows' }, rows),
+		routable ? gameRouteBar(game, g, conns, names, (g.routes || {})[game.id] || '') : null,
+		routable ? directCheck(game) : null
+	]));
 }
 
-// Which games are shown, and adding one by name.
-function dialogGames() {
-	var g = S.games || {};
-	var hidden = g.hidden || [];
-	var boxes = (g.games || []).map(function(game) {
-		var cb = h('input', { type: 'checkbox', 'class': 'fgz-switch', checked: hidden.indexOf(game.id) < 0, value: game.id });
-		return h('label', { 'class': 'fgz-check' }, [cb, h('span', { dir: 'ltr' }, game.name)]);
-	});
-	var add = h('input', { type: 'text', 'class': 'ltr', placeholder: t('addGamePh') });
-	dialog(t('chooseGames'), t('chooseGamesHint'), [
-		h('div', { 'class': 'fgz-gamelist' }, boxes),
-		h('label', {}, [t('addGame'), add])
-	], t('save'), function() {
-		var hide = boxes.map(function(b) { return b.firstChild; }).filter(function(cb) { return !cb.checked; }).map(function(cb) { return cb.value; });
-		return api('PUT', '/api/games/hidden', { hidden: hide }).then(function(r) {
-			S.games = r;
-			if (!add.value.trim()) return;
-			return api('POST', '/api/games/custom', { name: add.value }).then(function(r2) {
-				S.games = r2;
-				var made = r2.games[r2.games.length - 1];
-				S.gameOpen = made.id;
-				toast(made.steam ? t('gameAdded', made.name) : t('gameAddedNoArt', made.name));
-			});
-		}).then(function() { renderPanel(); });
-	});
+// Is the game's own server reachable without the tunnel, and faster? Some
+// games block their launcher in Iran but not their servers.
+function directCheck(game) {
+	var r = (S.directCheck || {})[game.id];
+	var line = null;
+	if (r) {
+		var text = r.advice === 'play-first' ? t('playFirst')
+			: r.advice === 'unknown' ? t('noPingAnswer')
+			: r.advice === 'direct' ? t('directBetter', num(r.best_direct), r.best_tunnel ? num(r.best_tunnel) : '—')
+			: t('tunnelBetter', num(r.best_direct), num(r.best_tunnel));
+		line = h('div', { 'class': 'fgz-dcheck', 'data-advice': r.advice }, present([
+			h('small', {}, text),
+			r.advice === 'direct' && ((S.games.routes || {})[game.id] !== 'direct') ? h('button', { 'class': 'fgz-btn primary', onclick: function(e) {
+				busy(e.currentTarget, api('PUT', '/api/games/' + game.id + '/route', { via: 'direct' })
+					.then(function(res) { S.games = res; toast(t('saved')); renderPanel(); }).catch(function(err) { toast(err.message); }));
+			} }, t('useDirect')) : null
+		]));
+	}
+	return h('div', { 'class': 'fgz-dcheckwrap' }, present([
+		h('button', { 'class': 'fgz-btn', title: t('checkDirectHint'), onclick: function(e) {
+			busy(e.currentTarget, api('POST', '/api/games/' + game.id + '/check').then(function(res) {
+				S.directCheck = S.directCheck || {};
+				S.directCheck[game.id] = res;
+				renderPanel();
+			}).catch(function(err) { toast(err.message); }));
+		} }, t('checkDirect')),
+		line
+	]));
+}
+
+// Search as you type: games already known (hidden ones can come back) and
+// Steam's store. A result is added with one press.
+function gameSearch() {
+	var list = h('div', { 'class': 'fgz-gsearch-list', role: 'listbox' });
+	var timer = null, seq = 0;
+	var show = function(hits, q) {
+		list.replaceChildren.apply(list, hits.length ? hits.map(function(hit) {
+			var state = hit.shown ? t('inList') : hit.hidden ? t('restoreGame') : t('addThis');
+			return h('button', { type: 'button', 'class': 'fgz-ghit', role: 'option', disabled: hit.shown, onclick: function(e) {
+				busy(e.currentTarget, api('POST', '/api/games/add', hit).then(function(r) {
+					S.games = r; input.value = ''; list.replaceChildren(); toast(t('gameAdded', hit.name)); renderPanel();
+				}).catch(function(err) { toast(err.message); }));
+			} }, present([
+				hit.image ? h('img', { src: hit.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : h('span', { 'class': 'noimg' }),
+				h('span', { 'class': 'n', dir: 'ltr' }, hit.name),
+				h('small', {}, state)
+			]));
+		}) : [h('small', { 'class': 'fgz-help', style: 'padding:8px 4px' }, q.length < 2 ? '' : t('noGameFound'))]);
+	};
+	var input = h('input', { type: 'search', 'class': 'ltr', placeholder: t('searchGamesPh'), 'aria-label': t('searchGamesPh'),
+		oninput: function() {
+			clearTimeout(timer);
+			var q = input.value.trim(), my = ++seq;
+			if (q.length < 2) { list.replaceChildren(); return; }
+			list.replaceChildren(h('small', { 'class': 'fgz-help', style: 'padding:8px 4px' }, t('searching')));
+			timer = setTimeout(function() {
+				api('GET', '/api/games/search?q=' + encodeURIComponent(q)).then(function(hits) {
+					if (my === seq) show(hits || [], q); // only the latest answer
+				}).catch(function(err) { if (my === seq) list.replaceChildren(h('small', { 'class': 'fgz-help' }, err.message)); });
+			}, 400);
+		} });
+	return h('div', { 'class': 'fgz-gsearch' }, [input, list]);
 }
 
 // Anti-lag (SQM/cake): the line's speeds, a switch, and what it is doing.

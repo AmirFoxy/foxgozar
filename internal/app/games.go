@@ -10,6 +10,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -156,6 +157,10 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 
 func (a *App) LastGames() GameResults {
 	st := a.Store.View()
+	// Missing pictures are looked up in the background. Not under a.mu:
+	// ensureArt takes it (claim), and deferred calls run before a deferred
+	// Unlock, which once deadlocked the whole API.
+	a.ensureArt()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	out := GameResults{Regions: Regions, Results: map[string]map[string]int{}}
@@ -181,6 +186,12 @@ func allGames(st state.State) []Game {
 			g.Servers = append(g.Servers, Server{Name: r.Name, Region: r.ID})
 		}
 		out = append(out, g)
+	}
+	// Steam's own picture address, once it has been looked up.
+	for i := range out {
+		if u := st.ArtCache[strconv.Itoa(out[i].Steam)]; out[i].Steam > 0 && u != "" {
+			out[i].Art = u
+		}
 	}
 	return out
 }

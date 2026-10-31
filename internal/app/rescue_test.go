@@ -40,3 +40,19 @@ func TestGamePort(t *testing.T) {
 		}
 	}
 }
+
+func TestSawGameServer(t *testing.T) {
+	a := &App{}
+	a.sawGameServer(5100, "185.40.65.10")    // LoL
+	a.sawGameServer(27020, "155.133.248.10") // Valve: Dota 2 and CS2 share these ports
+	a.sawGameServer(5100, "192.168.1.5")     // a LAN address is never a game server
+	if len(a.gameSeen["lol"]) != 1 || len(a.gameSeen["dota2"]) != 1 || len(a.gameSeen["cs2"]) != 1 {
+		t.Fatalf("seen: %v", a.gameSeen)
+	}
+	for i := 0; i < 10; i++ {
+		a.sawGameServer(5100, "185.40.66."+string(rune('0'+i)))
+	}
+	if len(a.gameSeen["lol"]) != gameServersKept {
+		t.Fatalf("kept %d, want %d", len(a.gameSeen["lol"]), gameServersKept)
+	}
+}
