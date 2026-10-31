@@ -75,6 +75,11 @@ var T = {
 		keepWarm: 'Keep core ready', keepWarmHint: 'Connect takes under a second; uses about 40 MB of memory',
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
+		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		gameDl: 'Game downloads go direct', gameDlHint: 'Steam, Epic, Battle.net and Riot downloads and updates skip the tunnel: they are huge, and this spares your server’s traffic and speed. Logins and the launchers themselves stay on the tunnel.',
+		chooseGames: 'Choose games', chooseGamesHint: 'Tick the games to show. To add one, type its name: FoxGozar finds it in Steam’s store and fetches its picture.', addGame: 'Add a game', addGamePh: 'Game name, e.g. Rust', noGamesShown: 'No games shown. Choose some with “Choose games”.',
+		gameAdded: '{0} added', gameAddedNoArt: '{0} added; Steam does not have it, so it has no picture', customGameHint: 'Its server cities are not known, so every measured city is shown: play on the one with the best ping.',
+		unreachable: 'unreachable', jitterHint: 'How much the ping wobbles from one moment to the next', p90Hint: 'Nine in ten moments stay under this', spikesTo: 'spikes to {0}',
 		antiLag: 'Anti-lag', antiLagLabel: 'Keep ping low while others download', antiLagHint: 'Holds traffic on the router just below your line’s speed (OpenWrt’s SQM with cake), so game and call packets do not wait behind downloads. The first time it installs two official OpenWrt packages.',
 		lineSpeed: 'Your line’s speed (Mbit/s)', lineSpeedHint: 'Measure with the speedtest.net app with every VPN off, and enter the numbers as they are',
 		lagInstalling: 'Installing SQM…', lagActive: 'On: cake is shaping the internet port', lagStarting: 'Starting…',
@@ -174,6 +179,11 @@ var T = {
 		keepWarm: 'هسته آماده بماند', keepWarmHint: 'اتصال زیر یک ثانیه؛ حدود ۴۰ مگابایت رم',
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
+		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		gameDl: 'دانلود بازی‌ها مستقیم', gameDlHint: 'دانلود و آپدیت Steam، Epic، Battle.net و Riot از تونل رد نمی‌شوند: حجمشان زیاد است و این‌طوری حجم و سرعت سرورتان حفظ می‌شود. لاگین و خود لانچرها از تونل می‌روند.',
+		chooseGames: 'انتخاب بازی‌ها', chooseGamesHint: 'بازی‌هایی را که می‌خواهید نشان داده شوند تیک بزنید. برای افزودن، اسمش را بنویسید: فاکس‌گذر آن را در فروشگاه Steam پیدا می‌کند و تصویرش را می‌آورد.', addGame: 'افزودن بازی', addGamePh: 'اسم بازی، مثلاً Rust', noGamesShown: 'هیچ بازی‌ای نشان داده نمی‌شود. از «انتخاب بازی‌ها» انتخاب کنید.',
+		gameAdded: '{0} اضافه شد', gameAddedNoArt: '{0} اضافه شد؛ Steam آن را ندارد، پس تصویری ندارد', customGameHint: 'شهر سرورهای این بازی معلوم نیست، پس همه شهرهای اندازه‌گیری‌شده نشان داده می‌شوند: روی شهری بازی کنید که بهترین پینگ را دارد.',
+		unreachable: 'در دسترس نیست', jitterHint: 'پینگ از یک لحظه به لحظه بعد چقدر بالا و پایین می‌رود', p90Hint: 'نه از ده لحظه زیر این عدد است', spikesTo: 'پرش تا {0}',
 		antiLag: 'ضد لگ', antiLagLabel: 'پینگ پایین بماند وقتی بقیه دانلود می‌کنند', antiLagHint: 'ترافیک را روی روتر کمی پایین‌تر از سرعت خط نگه می‌دارد (SQM با cake در OpenWrt)، تا بسته‌های بازی و تماس پشت دانلودها منتظر نمانند. بار اول دو بسته رسمی OpenWrt را نصب می‌کند.',
 		lineSpeed: 'سرعت خط شما (مگابیت)', lineSpeedHint: 'با اپ speedtest.net و با همه VPNها خاموش اندازه بگیرید و همان اعداد را بنویسید',
 		lagInstalling: 'در حال نصب SQM…', lagActive: 'روشن: cake پورت اینترنت را مدیریت می‌کند', lagStarting: 'در حال شروع…',
@@ -499,8 +509,11 @@ function renderStats() {
 					h('b', { 'class': 'dn' }, 'Σ↓ ' + (on ? bytes(st.download || 0) : dash)),
 					h('b', { 'class': 'up' }, 'Σ↑ ' + (on ? bytes(st.upload || 0) : dash))
 				])])
-			])
-		]),
+			]),
+			S.usage && (S.usage.up || S.usage.down) ? h('dl', {}, [h('div', { title: t('monthHint') }, [
+				h('dt', {}, t('cMonth')), h('dd', { 'class': 'num', dir: 'ltr' }, bytes(S.usage.up + S.usage.down))
+			])]) : null
+		].filter(Boolean)),
 		last
 	);
 }
@@ -565,7 +578,7 @@ function renderTabs() {
 function loadTab() {
 	var p;
 	switch (S.tab) {
-	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services'), api('GET', '/api/speedtest')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; S.speed2 = r[3]; }); break;
+	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services'), api('GET', '/api/speedtest'), api('GET', '/api/usage')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; S.speed2 = r[3]; S.usage = r[4]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
@@ -690,12 +703,15 @@ function row(id, name, sub, delay, checked, live) {
 // The last speed test: download speed, and a warning when new connections
 // to the server come up unsteadily (some take seconds).
 function speedLine(id) {
+	if (id.indexOf('auto') === 0) return null;
 	var r = S.speed2 && S.speed2[id];
-	if (!r || id.indexOf('auto') === 0) return null;
+	var used = S.usage && S.usage.nodes && S.usage.nodes[id];
+	if (!r && !used) return null;
 	return h('span', { 'class': 'fgz-svcs', dir: 'ltr' }, present([
-		h('span', { 'class': 'fgz-svc', 'data-ok': r.mbps > 0 ? '1' : '0', title: t('speedHint') },
-			r.mbps > 0 ? num(Math.round(r.mbps * 10) / 10) + ' Mbps' : t('speedFailed')),
-		r.unstable ? h('span', { 'class': 'fgz-svc', 'data-ok': '0', title: t('unstableHint', r.slow, r.setup.length, num(r.best)) }, t('unstable')) : null
+		used ? h('span', { 'class': 'fgz-svc', 'data-ok': '1', title: t('monthHint') }, t('thisMonth', bytes(used[0] + used[1]))) : null,
+		r ? h('span', { 'class': 'fgz-svc', 'data-ok': r.mbps > 0 ? '1' : '0', title: t('speedHint') },
+			r.mbps > 0 ? num(Math.round(r.mbps * 10) / 10) + ' Mbps' : t('speedFailed')) : null,
+		r && r.unstable ? h('span', { 'class': 'fgz-svc', 'data-ok': '0', title: t('unstableHint', r.slow, r.setup.length, num(r.best)) }, t('unstable')) : null
 	]));
 }
 
@@ -1131,8 +1147,30 @@ function pingQuality(ms) {
 // Banner art loads from the publisher's own CDN when the page is viewed;
 // nothing is bundled. Without art the banner falls back to its colours.
 function gameArt(game) {
-	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/library_hero.jpg';
+	// The header image: wide and small, made for tiles.
+	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/header.jpg';
 	return game.art || '';
+}
+
+// How a path to a city scores for a game: the 90th percentile carries the
+// spikes a player feels; a path that lost more than one round trip in ten
+// is pushed behind every steady one.
+function gameScore(g, id, region) {
+	var m = ((g.results || {})[id] || {})[region];
+	if (!(m > 0)) return Infinity;
+	var p = ((g.p90 || {})[id] || {})[region];
+	return p > 0 ? p : p === -1 ? m + 1000 : m;
+}
+
+function gameCity(g, conns, region) {
+	var best = null;
+	conns.forEach(function(id) {
+		var sc = gameScore(g, id, region);
+		if (sc < Infinity && (!best || sc < best.score))
+			best = { id: id, score: sc, ms: g.results[id][region], jitter: ((g.jitter || {})[id] || {})[region] || 0,
+				p90: ((g.p90 || {})[id] || {})[region] };
+	});
+	return best;
 }
 
 function panelGames() {
@@ -1141,7 +1179,10 @@ function panelGames() {
 	var names = { direct: t('directPath') };
 	S.nodes.forEach(function(n) { names[n.id] = n.name; });
 	var conns = Object.keys(res).filter(function(id) { return names[id]; });
-	var routes = g.routes || {}, routable = g.routable || {};
+	var hidden = g.hidden || [];
+	var games = (g.games || []).filter(function(x) { return hidden.indexOf(x.id) < 0; });
+	if (!games.some(function(x) { return x.id === S.gameOpen; })) S.gameOpen = games.length ? games[0].id : null;
+
 	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
 		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
 		btn.textContent = t('testing');
@@ -1149,39 +1190,94 @@ function panelGames() {
 			.catch(function(e) { toast(e.message); btn.textContent = t('testGames'); }));
 	} }, conns.length ? t('retestGames') : t('testGames'));
 	var head = h('div', { 'class': 'fgz-panel fgz-section' }, [h('div', { 'class': 'fgz-bar' }, [
-		h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')), btn])]);
+		h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')),
+		h('button', { 'class': 'fgz-btn', onclick: dialogGames }, t('chooseGames')),
+		btn])]);
 
-	var banners = (g.games || []).map(function(game) {
-		var art = gameArt(game);
-		var servers = game.servers.map(function(sv) {
-			// Every connection to this server's city, best first.
-			var rows = conns.map(function(id) { return { id: id, ms: res[id][sv.region] }; })
-				.filter(function(r) { return r.ms != null; })
-				.sort(function(a, b) { return (a.ms < 0) - (b.ms < 0) || a.ms - b.ms; });
-			var best = rows[0];
-			var q = pingQuality(best ? best.ms : -1);
-			return h('div', { 'class': 'fgz-srv', 'data-q': conns.length ? q[0] : 'none' }, present([
-				h('div', { 'class': 'srv-head' }, [h('b', { dir: 'ltr' }, sv.name), regionName(sv.region) === sv.name ? null : h('small', {}, regionName(sv.region))]),
-				conns.length ? h('div', { 'class': 'srv-ping' }, [
-					h('span', { 'class': 'big num', dir: 'ltr' }, best && best.ms > 0 ? num(best.ms) : '—'),
-					best && best.ms > 0 ? h('span', { 'class': 'unit' }, 'ms') : null,
-					h('span', { 'class': 'q' }, [h('i'), q[1]])
-				]) : h('div', { 'class': 'srv-ping' }, h('span', { 'class': 'unit' }, t('notMeasured'))),
-				best && best.ms > 0 ? h('small', { 'class': 'via', dir: 'auto' }, t('via', names[best.id])) : null,
-				rows.length > 1 ? h('ul', { 'class': 'others' }, rows.slice(1, 4).map(function(r) {
-					return h('li', {}, [h('span', { dir: 'auto' }, names[r.id]), h('b', { 'class': 'num', dir: 'ltr' }, r.ms > 0 ? num(r.ms) + ' ms' : t('failedShort'))]);
-				})) : null
-			]));
+	// The mosaic: every shown game, its best ping on the tile.
+	var tiles = games.map(function(game) {
+		var best = null;
+		game.servers.forEach(function(sv) {
+			var c = gameCity(g, conns, sv.region);
+			if (c && (!best || c.score < best.score)) best = c;
 		});
+		var q = pingQuality(best ? best.ms : -1);
+		var art = gameArt(game);
 		var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
 		if (img) img.addEventListener('error', function() { img.remove(); });
-		return h('article', { 'class': 'fgz-banner', 'data-game': game.id }, present([
-			h('div', { 'class': 'art' }, present([img, h('h4', { dir: 'ltr' }, game.name)])),
-			h('div', { 'class': 'srvs' }, servers),
-			routable[game.id] ? gameRouteBar(game, res, conns, names, routes[game.id] || '') : null
+		return h('button', { type: 'button', 'class': 'fgz-tile', 'data-game': game.id, 'data-q': conns.length ? q[0] : 'none',
+			'aria-pressed': S.gameOpen === game.id ? 'true' : 'false',
+			onclick: function() { S.gameOpen = game.id; renderPanel(); } }, present([
+			img,
+			h('span', { 'class': 'name', dir: 'ltr' }, game.name),
+			conns.length ? h('span', { 'class': 'ping num', dir: 'ltr' }, best ? num(best.ms) + ' ms' : '—') : null
 		]));
 	});
-	return h('div', {}, [antiLagCard(), head, h('div', { 'class': 'fgz-banners' }, banners)]);
+
+	var open = games.filter(function(x) { return x.id === S.gameOpen; })[0];
+	return h('div', {}, present([
+		antiLagCard(), head,
+		games.length ? h('div', { 'class': 'fgz-mosaic' }, tiles) : h('div', { 'class': 'fgz-panel' }, h('div', { 'class': 'fgz-empty' }, t('noGamesShown'))),
+		open ? gameDetail(open, g, conns, names) : null
+	]));
+}
+
+// One game's servers, one row each: the best path to its city, the ping,
+// how much it wobbles, and what a bad moment looks like.
+function gameDetail(game, g, conns, names) {
+	var custom = game.id.indexOf('my') === 0;
+	var rows = game.servers.map(function(sv) {
+		var c = gameCity(g, conns, sv.region);
+		var q = pingQuality(c ? c.ms : -1);
+		return h('div', { 'class': 'fgz-grow', 'data-q': conns.length ? q[0] : 'none' }, [
+			h('span', { 'class': 'dot' }),
+			h('div', { 'class': 'where' }, present([h('b', { dir: 'auto' }, sv.name),
+				regionName(sv.region) === sv.name ? null : h('small', {}, regionName(sv.region))])),
+			h('small', { 'class': 'path', dir: 'auto' }, c ? names[c.id] : conns.length ? t('unreachable') : t('notMeasured')),
+			h('b', { 'class': 'ms num', dir: 'ltr' }, c ? num(c.ms) + ' ms' : '—'),
+			h('small', { 'class': 'jit num', dir: 'ltr', title: t('jitterHint') }, c ? '±' + num(c.jitter) : ''),
+			h('small', { 'class': 'p90 num', dir: 'ltr', title: t('p90Hint') }, c && c.p90 > 0 && c.p90 - c.ms >= 30 ? t('spikesTo', num(c.p90)) : '')
+		]);
+	});
+	return h('div', { 'class': 'fgz-section' }, [h('div', { 'class': 'fgz-panel fgz-gdetail' }, present([
+		h('div', { 'class': 'fgz-bar' }, present([
+			h('b', { 'class': 'grow', dir: 'ltr' }, game.name),
+			custom ? h('button', { 'class': 'fgz-btn danger', onclick: function(e) {
+				busy(e.currentTarget, api('DELETE', '/api/games/custom/' + game.id).then(function(r) { S.games = r; renderPanel(); })
+					.catch(function(err) { toast(err.message); }));
+			} }, t('remove')) : null
+		])),
+		custom ? h('p', { 'class': 'fgz-help', style: 'padding-top:10px' }, t('customGameHint')) : null
+	].concat(rows).concat([
+		(g.routable || {})[game.id] ? gameRouteBar(game, g, conns, names, (g.routes || {})[game.id] || '') : null
+	])))]);
+}
+
+// Which games are shown, and adding one by name.
+function dialogGames() {
+	var g = S.games || {};
+	var hidden = g.hidden || [];
+	var boxes = (g.games || []).map(function(game) {
+		var cb = h('input', { type: 'checkbox', 'class': 'fgz-switch', checked: hidden.indexOf(game.id) < 0, value: game.id });
+		return h('label', { 'class': 'fgz-check' }, [cb, h('span', { dir: 'ltr' }, game.name)]);
+	});
+	var add = h('input', { type: 'text', 'class': 'ltr', placeholder: t('addGamePh') });
+	dialog(t('chooseGames'), t('chooseGamesHint'), [
+		h('div', { 'class': 'fgz-gamelist' }, boxes),
+		h('label', {}, [t('addGame'), add])
+	], t('save'), function() {
+		var hide = boxes.map(function(b) { return b.firstChild; }).filter(function(cb) { return !cb.checked; }).map(function(cb) { return cb.value; });
+		return api('PUT', '/api/games/hidden', { hidden: hide }).then(function(r) {
+			S.games = r;
+			if (!add.value.trim()) return;
+			return api('POST', '/api/games/custom', { name: add.value }).then(function(r2) {
+				S.games = r2;
+				var made = r2.games[r2.games.length - 1];
+				S.gameOpen = made.id;
+				toast(made.steam ? t('gameAdded', made.name) : t('gameAddedNoArt', made.name));
+			});
+		}).then(function() { renderPanel(); });
+	});
 }
 
 // Anti-lag (SQM/cake): the line's speeds, a switch, and what it is doing.
@@ -1214,15 +1310,13 @@ function antiLagCard() {
 	]))]);
 }
 
-// The path this game's match traffic takes, with the fastest one from the
-// last test pointed out (lowest ping to any of the game's server cities).
-function gameRouteBar(game, res, conns, names, cur) {
+// The path this game's match traffic takes, with the best one from the
+// last test pointed out (steadiest low ping to any of the game's cities).
+function gameRouteBar(game, g, conns, names, cur) {
 	var best = null;
-	conns.forEach(function(id) {
-		game.servers.forEach(function(sv) {
-			var ms = res[id][sv.region];
-			if (ms > 0 && (!best || ms < best.ms)) best = { id: id, ms: ms };
-		});
+	game.servers.forEach(function(sv) {
+		var c = gameCity(g, conns, sv.region);
+		if (c && (!best || c.score < best.score)) best = c;
 	});
 	var opts = [['', t('gameViaTunnel')], ['direct', t('directPath')]].concat(S.nodes.map(function(n) { return [n.id, n.name]; }));
 	var sel = h('select', { 'aria-label': t('gamePath'), onchange: function(e) {
@@ -1293,7 +1387,8 @@ function panelRules() {
 		switchField('iran_direct', t('iranDirect'), t('iranDirectHint')),
 		switchField('block_ads', t('blockAds'), t('blockAdsHint')),
 		switchField('block_malware', t('blockMalware'), t('blockMalwareHint')),
-		switchField('quic_block', t('quicBlock'), t('quicBlockHint'))
+		switchField('quic_block', t('quicBlock'), t('quicBlockHint')),
+		switchField('game_downloads_direct', t('gameDl'), t('gameDlHint'))
 	]);
 
 	var targets = [['direct', t('toDirect')], ['proxy', t('toProxy')], ['block', t('toBlock')]]
@@ -1735,7 +1830,8 @@ return view.extend({
 			api('GET', '/api/settings').catch(function() { return null; }),
 			api('GET', '/api/status').catch(function() { return null; }),
 			api('GET', '/api/subs').catch(function() { return []; }),
-			api('GET', '/api/nodes').catch(function() { return []; })
+			api('GET', '/api/nodes').catch(function() { return []; }),
+			api('GET', '/api/usage').catch(function() { return null; })
 		]);
 	},
 
@@ -1744,6 +1840,7 @@ return view.extend({
 		S.status = data[1];
 		S.subs = data[2] || [];
 		S.nodes = data[3] || [];
+		S.usage = data[4];
 		S.offline = !data[1];
 		lang = (S.settings && S.settings.language) || (/^fa/.test(L.env.lang || navigator.language) ? 'fa' : 'en');
 		root = h('div', { 'class': 'fgz' });

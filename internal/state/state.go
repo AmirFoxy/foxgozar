@@ -173,6 +173,10 @@ type Settings struct {
 
 	// Anti-lag: OpenWrt's SQM with cake on the internet port, so downloads
 	// do not make games and calls wait. Needs the line's real speeds.
+	// Game downloads (Steam, Epic, Battle.net, Riot) go direct: they are
+	// huge, and spare the server's traffic and speed.
+	GameDownloadsDirect bool `json:"game_downloads_direct"`
+
 	AntiLag  bool `json:"anti_lag"`
 	DownMbps int  `json:"down_mbps,omitempty"`
 	UpMbps   int  `json:"up_mbps,omitempty"`
@@ -198,6 +202,20 @@ type State struct {
 	// A path of its own per game: "direct" or a server id. Absent = the
 	// tunnel, like everything else.
 	GameRoutes map[string]string `json:"game_routes,omitempty"`
+	// Games the user hid from the Games tab, and games the user added.
+	// Traffic per server per month ("2006-01" -> node -> up, down), the
+	// last twelve months.
+	Usage       map[string]map[string][2]int64 `json:"usage,omitempty"`
+	HiddenGames []string                       `json:"hidden_games,omitempty"`
+	CustomGames []CustomGame                   `json:"custom_games,omitempty"`
+}
+
+// CustomGame is a game the user added by name; FoxGozar found the rest
+// (its Steam id, so its art) in Steam's store when it could.
+type CustomGame struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Steam int    `json:"steam,omitempty"`
 }
 
 // Share is a server on the router that people elsewhere connect to, so

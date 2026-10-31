@@ -28,3 +28,27 @@ func TestJudgeSetup(t *testing.T) {
 		t.Fatal("nothing worked: unstable")
 	}
 }
+
+func TestSummarizePing(t *testing.T) {
+	// Steady: min 90, small jitter, P90 close to min.
+	s := summarize([]int{91, 90, 92, 91, 90, 93, 91, 90, 92, 91})
+	if s.Min != 90 || s.P90 != 92 || s.Jitter > 3 {
+		t.Fatalf("steady: %+v", s)
+	}
+	// Same best ping, but spikes: P90 shows them, the minimum does not.
+	s = summarize([]int{90, 91, 300, 90, 92, 250, 91, 90, 280, 91})
+	if s.Min != 90 || s.P90 < 250 || s.Jitter < 50 {
+		t.Fatalf("spiky: %+v", s)
+	}
+	// One lost round trip in ten: still a number.
+	if s := summarize([]int{90, 90, -1, 90, 90, 90, 90, 90, 90, 90}); s.P90 != 90 {
+		t.Fatalf("one lost: %+v", s)
+	}
+	// Two lost: no honest 90th percentile.
+	if s := summarize([]int{90, -1, 90, -1, 90, 90, 90, 90, 90, 90}); s.P90 != -1 || s.Min != 90 {
+		t.Fatalf("two lost: %+v", s)
+	}
+	if s := summarize([]int{-1, -1}); s.Min != -1 {
+		t.Fatalf("all lost: %+v", s)
+	}
+}

@@ -49,3 +49,20 @@ func gameRules(st state.State) []any {
 	}
 	return rules
 }
+
+// GameDownloadDomains are the download servers of the big game stores:
+// tens of gigabytes per game or update, which go direct with
+// GameDownloadsDirect. Only content servers: the stores' logins and
+// launchers are not here and stay on the tunnel. All of these answered
+// directly from the owner's line in Iran when this was written.
+var GameDownloadDomains = []string{
+	// Steam
+	"steamcontent.com", "steampipe.akamaized.net", "steamcdn-a.akamaihd.net",
+	"cdn.cloudflare.steamstatic.com", "client-update.akamai.steamstatic.com",
+	// Epic Games
+	"epicgames-download1.akamaized.net", "fastly-download.epicgames.com", "download.epicgames.com", "epicgamescdn.com",
+	// Battle.net
+	"level3.blizzard.com", "blzddist1-a.akamaihd.net", "cdn.blizzard.com",
+	// Riot
+	"riotcdn.net",
+}

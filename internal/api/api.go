@@ -65,6 +65,9 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/games", s.gamesLast)
 	h("POST /api/games/test", s.gamesTest)
 	h("PUT /api/games/{id}/route", s.gameRoute)
+	h("PUT /api/games/hidden", s.hiddenGames)
+	h("POST /api/games/custom", s.addGame)
+	h("DELETE /api/games/custom/{id}", s.removeGame)
 	h("GET /api/antilag", s.antiLag)
 	h("PUT /api/antilag", s.putAntiLag)
 	h("POST /api/ping", s.ping)
@@ -94,6 +97,7 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/core/{kind}/update", s.coreUpdate)
 	h("POST /api/rulesets/update", s.rulesetUpdate)
 	h("GET /api/config", s.config)
+	h("GET /api/usage", s.usage)
 	h("GET /api/speedtest", s.speedResults)
 	h("POST /api/speedtest/{id}", s.speedTest)
 	h("GET /api/sharing", s.shareServer)
@@ -911,6 +915,39 @@ func (s *Server) putAntiLag(w http.ResponseWriter, r *http.Request) (any, error)
 	return s.App.AntiLagStatus(), nil
 }
 
+func (s *Server) hiddenGames(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Hidden []string `json:"hidden"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if err := s.App.SetHiddenGames(req.Hidden); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
+}
+
+func (s *Server) addGame(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if _, err := s.App.AddGame(r.Context(), req.Name); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
+}
+
+func (s *Server) removeGame(w http.ResponseWriter, r *http.Request) (any, error) {
+	if err := s.App.RemoveGame(r.PathValue("id")); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
+}
+
 func (s *Server) gameRoute(w http.ResponseWriter, r *http.Request) (any, error) {
 	var req struct {
 		Via string `json:"via"` // "direct", a server id, or "" for the tunnel
@@ -922,6 +959,15 @@ func (s *Server) gameRoute(w http.ResponseWriter, r *http.Request) (any, error) 
 		return nil, err
 	}
 	return s.App.LastGames(), nil
+}
+
+func (s *Server) usage(w http.ResponseWriter, r *http.Request) (any, error) {
+	m, nodes := s.App.MonthUsage()
+	var up, down int64
+	for _, x := range nodes {
+		up, down = up+x[0], down+x[1]
+	}
+	return map[string]any{"month": m, "nodes": nodes, "up": up, "down": down}, nil
 }
 
 func (s *Server) speedResults(w http.ResponseWriter, r *http.Request) (any, error) {

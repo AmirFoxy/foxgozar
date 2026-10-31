@@ -16,3 +16,22 @@ func TestPickISPDNS(t *testing.T) {
 		t.Errorf("none: %q", got)
 	}
 }
+
+func TestCustomGamePrefix(t *testing.T) {
+	for _, g := range Games {
+		if len(g.ID) >= len(CustomGamePrefix) && g.ID[:len(CustomGamePrefix)] == CustomGamePrefix {
+			t.Fatalf("built-in game %s starts with the custom prefix", g.ID)
+		}
+	}
+}
+
+func TestPruneMonths(t *testing.T) {
+	u := map[string]map[string][2]int64{}
+	for _, m := range []string{"2025-10", "2025-11", "2025-12", "2026-01", "2026-02"} {
+		u[m] = map[string][2]int64{"n": {1, 2}}
+	}
+	pruneMonths(u, 3)
+	if len(u) != 3 || u["2025-10"] != nil || u["2025-11"] != nil || u["2026-02"] == nil {
+		t.Fatalf("kept %v", u)
+	}
+}

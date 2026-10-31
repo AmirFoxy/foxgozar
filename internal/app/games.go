@@ -2,12 +2,15 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,10 +85,15 @@ type GameResults struct {
 	Regions []Region                  `json:"regions"`
 	Games   []Game                    `json:"games"`
 	Results map[string]map[string]int `json:"results"`
-	At      int64                     `json:"at,omitempty"`
+	// The same paths and regions: what nine in ten round trips stay under
+	// (-1: more than one in ten lost), and the jitter.
+	P90    map[string]map[string]int `json:"p90,omitempty"`
+	Jitter map[string]map[string]int `json:"jitter,omitempty"`
+	At     int64                     `json:"at,omitempty"`
 	// game id -> path of its own; and the games that can have one
 	Routes   map[string]string `json:"routes,omitempty"`
 	Routable map[string]bool   `json:"routable"`
+	Hidden   []string          `json:"hidden,omitempty"`
 }
 
 // TestGames measures every region through every server, eight at a time,
@@ -101,7 +109,8 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 	st := a.Store.View()
 	nodes := st.Nodes
 	probe := a.act().probePort(st.Settings)
-	out := GameResults{Regions: Regions, Games: Games, Results: map[string]map[string]int{}, At: time.Now().Unix()}
+	out := GameResults{Regions: Regions, Games: Games, Results: map[string]map[string]int{},
+		P90: map[string]map[string]int{}, Jitter: map[string]map[string]int{}, At: time.Now().Unix()}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 8)
@@ -111,14 +120,14 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 		paths = append(paths, n.ID)
 	}
 	for _, p := range paths {
-		out.Results[p] = map[string]int{}
+		out.Results[p], out.P90[p], out.Jitter[p] = map[string]int{}, map[string]int{}, map[string]int{}
 		for _, r := range Regions {
 			wg.Add(1)
 			go func(id string, r Region) {
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				best := -1
+				best := PingStats{Min: -1}
 				for _, host := range r.Hosts { // the second only when the first is down
 					target := "http://" + host + "/speedtest/latency.txt"
 					if id == DirectPath {
@@ -126,12 +135,14 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 					} else {
 						best = pingVia(ctx, probe, id, st.Token, target)
 					}
-					if best > 0 {
+					if best.Min > 0 {
 						break
 					}
 				}
 				mu.Lock()
-				out.Results[id][r.ID] = best
+				out.Results[id][r.ID] = best.Min
+				out.P90[id][r.ID] = best.P90
+				out.Jitter[id][r.ID] = best.Jitter
 				mu.Unlock()
 			}(p, r)
 		}
@@ -144,18 +155,121 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 }
 
 func (a *App) LastGames() GameResults {
-	routes := a.Store.View().GameRoutes
+	st := a.Store.View()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	out := GameResults{Regions: Regions, Games: Games, Results: map[string]map[string]int{}}
+	out := GameResults{Regions: Regions, Results: map[string]map[string]int{}}
 	if a.games != nil {
 		out = *a.games
 	}
-	out.Routes, out.Routable = routes, map[string]bool{}
+	out.Games = allGames(st)
+	out.Hidden = st.HiddenGames
+	out.Routes, out.Routable = st.GameRoutes, map[string]bool{}
 	for id := range gen.GamePorts {
 		out.Routable[id] = true
 	}
 	return out
+}
+
+// allGames is the built-in list and the user's own games. A game the user
+// added has no known server cities: every measured city is shown for it.
+func allGames(st state.State) []Game {
+	out := append([]Game(nil), Games...)
+	for _, c := range st.CustomGames {
+		g := Game{ID: c.ID, Name: c.Name, Steam: c.Steam}
+		for _, r := range Regions {
+			g.Servers = append(g.Servers, Server{Name: r.Name, Region: r.ID})
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
+// SetHiddenGames chooses which games the Games tab leaves out.
+func (a *App) SetHiddenGames(hidden []string) error {
+	known := map[string]bool{}
+	for _, g := range allGames(a.Store.View()) {
+		known[g.ID] = true
+	}
+	var keep []string
+	for _, id := range hidden {
+		if known[id] {
+			keep = append(keep, id)
+		}
+	}
+	return a.Store.Update(func(s *state.State) error { s.HiddenGames = keep; return nil })
+}
+
+// AddGame adds a game by name. Its Steam id (for the official art) is
+// looked up in Steam's store, through the tunnel; a game Steam does not
+// have is added by its name alone.
+func (a *App) AddGame(ctx context.Context, name string) (state.CustomGame, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 80 {
+		return state.CustomGame{}, errors.New("give the game's name")
+	}
+	g := state.CustomGame{ID: CustomGamePrefix + state.RandomHex(4), Name: name}
+	if id, found, err := steamLookup(ctx, a.Fetcher(), name); err == nil && id > 0 {
+		g.Steam, g.Name = id, found
+	} else if err != nil {
+		a.Log.Add("foxgozar", "Steam lookup for "+name+": "+err.Error())
+	}
+	err := a.Store.Update(func(s *state.State) error {
+		for _, x := range allGames(*s) {
+			if strings.EqualFold(x.Name, g.Name) || (g.Steam > 0 && x.Steam == g.Steam) {
+				return fmt.Errorf("%s is already in the list", x.Name)
+			}
+		}
+		s.CustomGames = append(s.CustomGames, g)
+		return nil
+	})
+	return g, err
+}
+
+// RemoveGame removes a game the user added.
+func (a *App) RemoveGame(id string) error {
+	return a.Store.Update(func(s *state.State) error {
+		kept := s.CustomGames[:0]
+		found := false
+		for _, c := range s.CustomGames {
+			if c.ID == id {
+				found = true
+				continue
+			}
+			kept = append(kept, c)
+		}
+		if !found {
+			return errors.New("only games you added can be removed; built-in ones can be hidden")
+		}
+		s.CustomGames = kept
+		return nil
+	})
+}
+
+// steamLookup finds a game in Steam's store search: its app id and its
+// name as Steam writes it.
+func steamLookup(ctx context.Context, f *core.Fetcher, name string) (int, string, error) {
+	u := "https://store.steampowered.com/api/storesearch/?l=english&cc=US&term=" + url.QueryEscape(name)
+	b, err := f.Get(ctx, u, 1<<20)
+	if err != nil {
+		return 0, "", err
+	}
+	var r struct {
+		Items []struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(b, &r); err != nil {
+		return 0, "", err
+	}
+	for _, it := range r.Items {
+		if it.ID > 0 && it.Type == "app" {
+			return it.ID, it.Name, nil
+		}
+	}
+	return 0, "", nil
 }
 
 // DirectPath is the path outside the tunnel, in results and routes.
@@ -193,7 +307,7 @@ func (a *App) SetGameRoute(ctx context.Context, game, via string) error {
 // the next few travel the open connection, and the lowest is kept. A reply
 // that came on a new connection would include that setup again, so it is
 // not used. -1 when the region cannot be reached.
-func pingVia(ctx context.Context, probePort int, node, secret, target string) int {
+func pingVia(ctx context.Context, probePort int, node, secret, target string) PingStats {
 	proxy := &url.URL{Scheme: "socks5", Host: fmt.Sprintf("127.0.0.1:%d", probePort), User: url.UserPassword(node, secret)}
 	return pingOn(ctx, &http.Transport{Proxy: http.ProxyURL(proxy), MaxIdleConnsPerHost: 1, DisableCompression: true,
 		ResponseHeaderTimeout: 5 * time.Second}, target)
@@ -201,12 +315,12 @@ func pingVia(ctx context.Context, probePort int, node, secret, target string) in
 
 // pingDirect is pingVia without the tunnel: the path a game takes when it
 // is routed direct.
-func pingDirect(ctx context.Context, target string) int {
+func pingDirect(ctx context.Context, target string) PingStats {
 	return pingOn(ctx, &http.Transport{DialContext: core.MarkedDialer(gen.RoutingMark).DialContext, MaxIdleConnsPerHost: 1,
 		DisableCompression: true, ResponseHeaderTimeout: 5 * time.Second}, target)
 }
 
-func pingOn(ctx context.Context, tr *http.Transport, target string) int {
+func pingOn(ctx context.Context, tr *http.Transport, target string) PingStats {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr, Timeout: 7 * time.Second}
 	get := func() (time.Duration, bool, error) {
@@ -225,26 +339,85 @@ func pingOn(ctx context.Context, tr *http.Transport, target string) int {
 		return time.Since(t0), reused, nil
 	}
 	if _, _, err := get(); err != nil {
-		return -1
+		return PingStats{Min: -1}
 	}
-	best := time.Duration(-1)
-	for i := 0; i < 4; i++ {
+	var samples []int
+	for i := 0; i < pingSamples && ctx.Err() == nil; i++ {
 		d, reused, err := get()
-		if err != nil || !reused {
+		switch {
+		case err != nil:
+			samples = append(samples, -1) // lost, as far as a game is concerned
+		case reused:
+			samples = append(samples, int(d.Milliseconds()))
+		}
+		time.Sleep(40 * time.Millisecond) // spread over time, as game packets are
+	}
+	return summarize(samples)
+}
+
+// pingSamples round trips are taken on the open connection: enough to see
+// the spikes a game feels, not only the best case.
+const pingSamples = 10
+
+// PingStats: Min is the best round trip (-1: unreachable); P90 is what
+// nine in ten stay under, so it carries the spikes; Jitter is the average
+// change from one round trip to the next.
+type PingStats struct{ Min, P90, Jitter int }
+
+func summarize(samples []int) PingStats {
+	var ok []int
+	lost := 0
+	for _, s := range samples {
+		if s < 0 {
+			lost++
+		} else {
+			ok = append(ok, s)
+		}
+	}
+	if len(ok) == 0 {
+		return PingStats{Min: -1}
+	}
+	jit, n := 0, 0
+	prev := -1
+	for _, s := range samples {
+		if s < 0 {
 			continue
 		}
-		if best < 0 || d < best {
-			best = d
+		if prev >= 0 {
+			d := s - prev
+			if d < 0 {
+				d = -d
+			}
+			jit += d
+			n++
 		}
+		prev = s
 	}
-	if best < 0 {
-		return -1
+	sorted := append([]int(nil), ok...)
+	sort.Ints(sorted)
+	st := PingStats{Min: sorted[0]}
+	if n > 0 {
+		st.Jitter = jit / n
 	}
-	return int(best.Milliseconds())
+	// A lost round trip counts as the worst of all for the 90th percentile.
+	all := append(sorted, make([]int, lost)...)
+	for i := len(sorted); i < len(all); i++ {
+		all[i] = 1 << 20
+	}
+	p := all[(len(all)*9+9)/10-1]
+	if p == 1<<20 {
+		p = -1 // more than one in ten lost: no number would be honest
+	}
+	st.P90 = p
+	return st
 }
 
 // PingVia measures one target through one server, for the CLI.
 func (a *App) PingVia(ctx context.Context, node, target string) int {
 	st := a.Store.View()
-	return pingVia(ctx, a.act().probePort(st.Settings), node, st.Token, target)
+	return pingVia(ctx, a.act().probePort(st.Settings), node, st.Token, target).Min
 }
+
+// CustomGamePrefix starts the id of every game the user added; no
+// built-in id starts with it.
+const CustomGamePrefix = "my"

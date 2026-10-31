@@ -32,3 +32,11 @@ func diff(a, b rescueCombo) int {
 	}
 	return n
 }
+
+func TestGamePort(t *testing.T) {
+	for p, want := range map[int]bool{27015: true, 27200: true, 27201: false, 5000: true, 7500: true, 8181: true, 9050: true, 443: false, 53: false} {
+		if gamePort(p) != want {
+			t.Errorf("port %d: got %v", p, !want)
+		}
+	}
+}

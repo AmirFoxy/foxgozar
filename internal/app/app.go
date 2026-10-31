@@ -61,6 +61,8 @@ type App struct {
 	inRescue         bool   // a rescue round is changing settings
 	lastRescue       string // what the last successful one changed
 	lag              *antiLagState
+	gaming           bool // a game is being played: background jobs wait
+	usage            *usageCounter
 	services         *ServiceResults
 	games            *GameResults
 }
@@ -70,7 +72,8 @@ func New(p Paths, st *state.Store) *App {
 		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats(),
 		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}},
 		speed:    &speedTests{res: map[string]SpeedResult{}},
-		lag:      &antiLagState{}}
+		lag:      &antiLagState{},
+		usage:    &usageCounter{conns: map[string][3]int64{}, pending: map[string][2]int64{}}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
@@ -147,6 +150,7 @@ func (a *App) Boot(ctx context.Context) {
 	go a.loop(ctx)
 	go a.warpWatch(ctx)
 	go a.rescueWatch(ctx)
+	go a.usageWatch(ctx)
 	go a.shareWatch(ctx)
 }
 
@@ -856,6 +860,10 @@ func (a *App) loop(ctx context.Context) {
 			} else {
 				failures = 0
 			}
+		}
+		// The heavy jobs below take the CPU for seconds: not during a match.
+		if a.quietForGame(ctx) {
+			continue
 		}
 		// Subscriptions on their own schedules.
 		for _, s := range st.Subs {

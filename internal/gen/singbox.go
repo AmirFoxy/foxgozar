@@ -266,6 +266,11 @@ func Build(st state.State, env Env) ([]byte, error) {
 		}
 		dnsRules = append(dnsRules, r)
 	}
+	// Direct game downloads resolve with the provider's DNS: some providers
+	// keep a local copy (cache) of these servers.
+	if s.GameDownloadsDirect {
+		dnsRules = append(dnsRules, map[string]any{"domain_suffix": toAny(GameDownloadDomains), "server": "dns-direct"})
+	}
 	if s.FakeIP {
 		dnsRules = append(dnsRules, map[string]any{"query_type": []any{"A", "AAAA"}, "server": "dns-fake"})
 	}
@@ -331,6 +336,9 @@ func Build(st state.State, env Env) ([]byte, error) {
 	// Games with a path of their own, by their UDP ports: ahead of every
 	// other rule, so nothing else catches their match traffic.
 	rules = append(rules, gameRules(st)...)
+	if s.GameDownloadsDirect {
+		rules = append(rules, map[string]any{"domain_suffix": toAny(GameDownloadDomains), "outbound": TagDirect})
+	}
 	// User rules come before the Iran rule so a user can send an Iranian
 	// site through the tunnel if they want.
 	for _, sr := range st.Rules {

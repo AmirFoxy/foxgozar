@@ -240,3 +240,23 @@ func TestGameRoutes(t *testing.T) {
 		t.Fatalf("a removed server, or a game without known ports, must not get a rule: %v", got)
 	}
 }
+
+func TestGameDownloadsDirect(t *testing.T) {
+	st := sampleState(t)
+	env := Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090}
+	b, _ := Build(st, env)
+	if strings.Contains(string(b), "steamcontent.com") {
+		t.Fatal("off: no download rule")
+	}
+	st.Settings.GameDownloadsDirect = true
+	b, err := Build(st, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(b), "steamcontent.com") != 2 { // the route rule and the DNS rule
+		t.Fatal("on: downloads must go direct and resolve with the provider's DNS")
+	}
+	if strings.Contains(string(b), "steampowered.com") {
+		t.Fatal("the store itself (logins) must stay on the tunnel")
+	}
+}
