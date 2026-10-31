@@ -29,11 +29,14 @@ type Config struct {
 	ServerV4      []string // proxy server addresses, always direct
 	ServerV6      []string
 	// Per-device policy by MAC. With DefaultDirect, only TunnelMACs enter the
-	// core; otherwise everyone but DirectMACs does. BlockMACs reach nothing
-	// beyond the router.
+	// core; otherwise everyone but DirectMACs does. BlockMACs (BlockScript)
+	// reach nothing beyond the router.
 	TunnelMACs, DirectMACs, BlockMACs []string
 	DefaultDirect                     bool
 	FakeIP                            bool
+	// The core's open proxy port on the router (0 = off), closed to blocked
+	// devices by BlockScript.
+	MixedPort int
 }
 
 var reservedV4 = []string{
@@ -81,7 +84,7 @@ func Script(c Config) string {
 	for _, s := range []struct {
 		name string
 		macs []string
-	}{{"tunnel_mac", c.TunnelMACs}, {"direct_mac", c.DirectMACs}, {"block_mac", c.BlockMACs}} {
+	}{{"tunnel_mac", c.TunnelMACs}, {"direct_mac", c.DirectMACs}} {
 		fmt.Fprintf(&b, "\tset %s {\n\t\ttype ether_addr\n", s.name)
 		if len(s.macs) > 0 {
 			fmt.Fprintf(&b, "\t\telements = { %s }\n", strings.Join(s.macs, ", "))
@@ -120,9 +123,7 @@ func Script(c Config) string {
 		fmt.Fprintf(&b, "\t\tiifname \"lo\" meta mark & 0xff == 0x%x meta l4proto { tcp, udp } tproxy ip6 to [::1]:%d accept\n", FwMark, c.TProxyPort)
 	}
 	fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
-	// Blocked devices first: before the IPv6 and local-address returns, so no
-	// way out is left. The router itself (DHCP, DNS, this UI) stays reachable.
-	b.WriteString("\t\tether saddr @block_mac fib daddr type != { local, broadcast, multicast } drop\n")
+	// Blocked devices never get here: BlockScript drops them earlier.
 	bypassDevices(&b)
 	filter(&b)
 	fmt.Fprintf(&b, "\t\tmeta l4proto { tcp, udp } meta mark set meta mark & 0xffffff00 | 0x%x tproxy ip to 127.0.0.1:%d accept\n", FwMark, c.TProxyPort)
@@ -130,6 +131,19 @@ func Script(c Config) string {
 		fmt.Fprintf(&b, "\t\tmeta l4proto { tcp, udp } meta mark set meta mark & 0xffffff00 | 0x%x tproxy ip6 to [::1]:%d accept\n", FwMark, c.TProxyPort)
 	}
 	b.WriteString("\t}\n")
+
+	// IPv6 off: the core never sees IPv6, so without this a device with an
+	// IPv6 address reaches the internet around the tunnel. Rejected (not
+	// dropped) so it falls back to IPv4 at once. Here and not in prerouting:
+	// nftables allows reject only in input, forward and output.
+	if !c.IPv6 {
+		b.WriteString("\tchain forward {\n\t\ttype filter hook forward priority filter - 5; policy accept;\n")
+		fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
+		b.WriteString("\t\tmeta nfproto != ipv6 return\n")
+		bypassDevices(&b)
+		b.WriteString("\t\treject with icmpx type admin-prohibited\n")
+		b.WriteString("\t}\n")
+	}
 
 	// The router's own traffic: mark it so the policy route loops it back
 	// through lo into prerouting above.
@@ -152,6 +166,44 @@ func Script(c Config) string {
 
 	b.WriteString("}\n")
 	return b.String()
+}
+
+// BlockScript cuts BlockMACs off from everything beyond the router. It is a
+// table of its own, kept whether the tunnel is up or not: a blocked device
+// (or one inside its scheduled hours) stays blocked while disconnected too.
+// Dropped in prerouting ahead of the tunnel's rules, because once those hand
+// a packet to the core it never reaches forward. The router itself (DHCP,
+// DNS, this UI) stays reachable, except the core's open proxy port: with it a
+// blocked device could set the router as its proxy and undo the block.
+func BlockScript(c Config) string {
+	head := fmt.Sprintf("table inet %[1]s_block\ndelete table inet %[1]s_block\n", Table)
+	if len(c.BlockMACs) == 0 {
+		return head
+	}
+	var b strings.Builder
+	b.WriteString(head)
+	lan := quoteList(c.LANInterfaces)
+	macs := strings.Join(c.BlockMACs, ", ")
+	fmt.Fprintf(&b, "table inet %s_block {\n", Table)
+	fmt.Fprintf(&b, "\tset mac {\n\t\ttype ether_addr\n\t\telements = { %s }\n\t}\n", macs)
+	b.WriteString("\tchain prerouting {\n\t\ttype filter hook prerouting priority mangle - 10; policy accept;\n")
+	fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
+	b.WriteString("\t\tether saddr @mac fib daddr type != { local, broadcast, multicast } drop\n")
+	b.WriteString("\t}\n")
+	if c.MixedPort > 0 {
+		b.WriteString("\tchain input {\n\t\ttype filter hook input priority filter - 5; policy accept;\n")
+		fmt.Fprintf(&b, "\t\tiifname != %s return\n", lan)
+		fmt.Fprintf(&b, "\t\tether saddr @mac tcp dport %d reject with tcp reset\n", c.MixedPort)
+		fmt.Fprintf(&b, "\t\tether saddr @mac udp dport %d reject\n", c.MixedPort)
+		b.WriteString("\t}\n")
+	}
+	b.WriteString("}\n")
+	return b.String()
+}
+
+// Block installs (or, with no BlockMACs, removes) the blocking table.
+func Block(c Config) error {
+	return run(BlockScript(c), "nft", "-f", "-")
 }
 
 // KillSwitchScript blocks LAN traffic to the internet while the tunnel is

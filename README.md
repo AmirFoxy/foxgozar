@@ -16,7 +16,14 @@ with a light or dark theme.
 - **Picks the fastest server by itself** and switches when one slows down or fails
 - **Free WARP backup** that takes over when every server is down
 - **Per-device control:** through the tunnel, direct, through one chosen server, or no internet
+- **Offline hours per device**, every day (for example 23:00 to 07:00), even while disconnected
 - **Iranian sites go direct** (faster, and they don't use your server's data)
+- **Your own rules:** domains, IP ranges, `keyword:` matches, or a link to a list that updates daily
+- **Fastest of one subscription:** automatic choice limited to one subscription's servers
+- **Warnings** a few days before a subscription expires or runs out of data
+- **Backup and restore** of everything in one file; settings also survive firmware upgrades
+- **Share the router's internet** with people on the domestic network (for a shutdown, with
+  Starlink on the router), and a `dualwan` mode that turns the second port into a domestic line
 - **Blocks ads, malware and phishing** for every device
 - **Kill switch:** devices stay offline instead of going out unprotected when the tunnel drops
 - **Real game ping** to the servers of Dota 2, CS2, League of Legends, Valorant and more
@@ -173,7 +180,32 @@ You can close the terminal windows.
 | Settings | **Use WARP when every server fails** | Free backup so the internet keeps working |
 | Settings | **Kill switch** | Nothing leaks out unprotected if the tunnel drops |
 
-To choose how each device connects, open the **Devices** tab.
+To choose how each device connects, open the **Devices** tab. The clock button
+next to a device sets its offline hours.
+
+### For a shutdown: Starlink plus the domestic network
+
+If the international internet is cut but the domestic network still works, and
+you have Starlink (or another way out), the router can carry both and share
+Starlink with people elsewhere in Iran:
+
+1. Over SSH, run `foxgozar dualwan on --yes`. The router's LAN port becomes a
+   second internet port (wan2). Plug Starlink into the WAN port and the domestic
+   line into the other. Use Wi-Fi to reach the router from now on.
+   Iranian addresses go over the domestic line, everything else over Starlink.
+2. In the **Sharing** tab, turn on the sharing server.
+   If the domestic modem is itself a router, forward the port (8443 by default)
+   to this router.
+3. Press **New account** once for each person and give it their name (optionally a
+   data limit). Their link and QR appear right away: show the QR in person or send
+   it by SMS (messengers inside Iran are watched). **Copy message** copies the link
+   with short instructions. People need v2rayNG, Hiddify or Streisand installed
+   beforehand, since app stores do not work during a shutdown.
+4. The tab shows who is connected and how much each person has used. Pause an
+   account with its switch, give it a new link, or remove it; the others are not
+   affected. An account with a data limit pauses itself when it reaches it.
+
+`foxgozar dualwan off --yes` makes the port a LAN port again.
 
 ---
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -95,7 +96,46 @@ func (a *App) envFor(st state.State, sl *slot) gen.Env {
 		ClashPort:  sl.clashPort(st.Settings),
 		XrayBase:   sl.xrayBase(),
 		ProbePort:  sl.probePort(st.Settings),
+		ISPDNS:     ispDNS(),
 	}
+}
+
+// ispDNS is the first DNS server the provider gave the router, from the
+// list netifd keeps for dnsmasq. With two connections (dualwan), the
+// domestic one ("wan2") is the one that answers for Iranian sites.
+func ispDNS() string {
+	b, err := os.ReadFile("/tmp/resolv.conf.d/resolv.conf.auto")
+	if err != nil {
+		return ""
+	}
+	return pickISPDNS(string(b))
+}
+
+func pickISPDNS(text string) string {
+	var first, domestic, iface string
+	for _, line := range strings.Split(text, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 3 && f[0] == "#" && f[1] == "Interface" {
+			iface = f[2]
+			continue
+		}
+		if len(f) < 2 || f[0] != "nameserver" || net.ParseIP(f[1]) == nil || net.ParseIP(f[1]).To4() == nil {
+			continue
+		}
+		if first == "" {
+			first = f[1]
+		}
+		if iface == "wan2" && domestic == "" {
+			domestic = f[1]
+		}
+	}
+	if domestic != "" {
+		return "udp://" + domestic
+	}
+	if first != "" {
+		return "udp://" + first
+	}
+	return ""
 }
 
 // configHash ignores what does not need new config: delays and names.

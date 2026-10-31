@@ -81,6 +81,13 @@ func main() {
 		fmt.Println(version)
 		return
 	}
+	if cmd == "dualwan" {
+		if err := dualWAN(args); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := client(cmd, args); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -88,7 +95,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | remove ID | devices | device MAC POLICY | nodes | logs | config | update sing-box|xray|rules | version")
+	fmt.Fprintln(os.Stderr, "usage: foxgozar run | status | start | stop | restart | import | sub URL | test | select ID | remove ID | devices | device MAC POLICY | nodes | logs | config | update sing-box|xray|rules | dualwan on|off|status | version")
 	os.Exit(2)
 }
 

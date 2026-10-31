@@ -38,8 +38,11 @@ var T = {
 		devices: 'Devices', newDevices: 'Devices without a setting of their own', viaTunnel: 'Through the tunnel', direct: 'Direct, without the tunnel', block: 'No internet', viaServer: 'Through {0}',
 		noDevices: 'No devices seen yet', noDevicesHint: 'Devices appear here once they connect to the router.', offlineDev: 'offline', rename: 'Rename', devName: 'Device name',
 		usageHint: 'Used through the tunnel since the router service started', directNotMeasured: 'direct traffic is not counted', server: 'Server',
+		schedule: 'Offline hours', scheduleHint: 'Every day, no internet between these times. May cross midnight, for example 23:00 to 07:00.',
+		scheduleOn: 'Offline hours on', from: 'From', to: 'To', offHours: 'no internet {0} to {1}', pausedNow: 'no internet now, until {0}',
 		nodes: 'Servers', subs: 'Subscriptions', rules: 'Routing', settings: 'Settings', logs: 'Log',
 		auto: 'Fastest, automatically', autoHint: 'Switches by itself when a server slows down or fails',
+		autoSub: 'Fastest of this subscription', autoSubHint: 'Picks automatically, but only among this subscription’s servers',
 		addedByYou: 'Added by you', add: 'Add servers', testAll: 'Test all', removeFailed: 'Remove failed',
 		search: 'Search servers', test: 'Test', remove: 'Remove', failedShort: 'failed',
 		noNodes: 'No servers yet', noNodesHint: 'Add share links (vless://, vmess://, trojan://, ss://, hy2:// …) or a subscription.',
@@ -51,17 +54,19 @@ var T = {
 		update: 'Update', updated: 'Updated', noSubs: 'No subscriptions', noSubsHint: 'A subscription keeps its servers up to date by itself.',
 		servers: '{0} servers', expires: 'Expires in {0} days', expired: 'Expired', lastUpdate: 'Updated {0}',
 		every: 'Every {0} hours', of: '{0} of {1}',
+		subExpired: 'Subscription “{0}” has expired', subExpiresSoon: 'Subscription “{0}” expires in {1} days', subAlmostUsed: 'Subscription “{0}”: {1}% of its traffic used',
 		iranDirect: 'Iranian sites go direct', iranDirectHint: 'Faster, and does not use your server’s traffic',
 		blockAds: 'Block ads', blockAdsHint: 'Ad and tracker domains, Persian and foreign, for every device. Ads inside YouTube videos come from the same servers as the videos, so no router can block them; use uBlock Origin in the browser, or ReVanced or SmartTube on Android.',
 		blockMalware: 'Block malware and phishing', blockMalwareHint: 'Known malware, phishing and crypto-mining addresses',
 		quicBlock: 'Block QUIC', quicBlockHint: 'Makes video and browsers use TCP; helps on some servers',
-		customRules: 'Your rules', addRule: 'Add rule', rulePlaceholder: 'Domains or IP ranges, separated by commas',
+		customRules: 'Your rules', addRule: 'Add rule', rulePlaceholder: 'Domains, IP ranges, keyword:word or a list link',
+		rulesHelp: 'Separate entries with commas. example.com also covers its subdomains; keyword:google matches any domain containing google; a link (https://…) to a sing-box rule-set or a plain list of domains is downloaded and refreshed daily.',
 		toDirect: 'Direct', toProxy: 'Through the tunnel', toBlock: 'Block', save: 'Save', saved: 'Saved',
 		noRules: 'No rules yet. Example: openai.com through a specific server.',
 		sConnection: 'Connection', sDns: 'DNS', sNetwork: 'Network', sAdvanced: 'Advanced', sCores: 'Cores',
 		testUrl: 'Test address', testUrlHint: 'Used to measure every server',
 		testInterval: 'Test every (seconds)', tolerance: 'Switch when faster by (ms)', toleranceHint: 'Avoids hopping between servers that are nearly as fast',
-		remoteDns: 'DNS through the tunnel', directDns: 'DNS for direct sites', fakeIp: 'Fake IP', fakeIpHint: 'Faster first connections; some apps dislike it',
+		remoteDns: 'DNS through the tunnel', directDns: 'DNS for direct sites', directDnsHint: 'isp = your internet provider’s DNS (best for Iranian sites), or an address such as udp://8.8.8.8', fakeIp: 'Fake IP', fakeIpHint: 'Faster first connections; some apps dislike it',
 		proxyRouter: 'Router’s own traffic through the tunnel', ipv6: 'IPv6', killSwitch: 'Kill switch', killSwitchHint: 'Devices stay offline while the tunnel is down, instead of going out unprotected',
 		lan: 'LAN interfaces', lanHint: 'Comma-separated, usually br-lan',
 		mux: 'Multiplex', muxHint: 'Fewer handshakes on servers that support it',
@@ -69,6 +74,32 @@ var T = {
 		keepWarm: 'Keep core ready', keepWarmHint: 'Connect takes under a second; uses about 40 MB of memory',
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
+		quick: 'Quick settings', qServer: 'Server', qAuto: 'Automatic', qManual: 'Manual', qIran: 'Iranian sites', qDirect: 'Direct', qTunnel: 'Tunnel', on: 'On', off: 'Off',
+		cConn: 'Connected for', cMemory: 'Core memory', cBest: 'Best server', cAvg: 'Average', cTraffic: 'Traffic', cNow: 'Now', cTotal: 'Total',
+		cSub: 'Subscription', cQuota: 'Used', cServers: 'Servers', cWorking: 'Answering',
+		sSharing: 'Share this router’s internet', sharing: 'Sharing server',
+		sharingHint: 'For a shutdown: with Starlink (or another way out) on the router, people on the domestic network connect here and use it. Each person gets an account of their own below.',
+		newKeyDone: 'New server key made: every account’s link changed, send them again',
+		share: 'Sharing', sharingNoUsers: 'On, but no account yet: add one below', sharingOff: 'Not running',
+		newKeyHint: 'Changes every account’s link at once', accounts: 'Accounts ({0})', addAccount: 'New account',
+		accountsHint: 'One account per person, so you see who uses how much and can pause or remove one alone. Give the link in person (QR) or by SMS; messengers inside Iran are watched. During a shutdown app stores do not work: people need v2rayNG, Hiddify or Streisand installed beforehand, or the app file from you.',
+		noAccounts: 'No accounts yet', noAccountsHint: 'Add one for each person who should use this router’s internet.',
+		onlineNow: 'connected now ({0})', lastSeen: 'last used {0}', neverSeen: 'not used yet',
+		pausedLimit: 'Paused: data limit reached', pausedByYou: 'Paused', accountOn: 'Account on',
+		removeAccount: 'Press again to remove {0}’s account', accountName: 'Who is it for', accountNamePh: 'Name, e.g. Sara',
+		limitGB: 'Data limit (GB)', noLimit: 'No limit', resetUsage: 'Reset the usage count', newLink: 'New link (the old one stops working)',
+		addAccountHint: 'A link of its own is made for this person; you can send it right after.', newLinkDone: 'New link made: send it again',
+		copyMessage: 'Copy message',
+		howToUse: 'This link is for you only; do not pass it on.\nAndroid: install v2rayNG or Hiddify, copy the link below, choose “Import from clipboard” in the app, then connect.\niPhone: install Streisand or V2Box and do the same.\nIf it does not connect, tell me.',
+		sharingPort: 'Port', sharingPortHint: 'If the domestic modem is a router, forward this TCP port to this router',
+		sharingSni: 'Looks like a visit to', sharingSniHint: 'A busy site with TLS 1.3. Probes at the port see that site.',
+		sharingOn: 'Running', sharingDown: 'Not running yet; see the log', sharingAt: 'People connect to {0} (on {1})',
+		sharingNoAddr: 'The router has no internet address yet', showLink: 'Link and QR', newKey: 'New key',
+		dualwanOn: 'Two internet ports are on: the second port (wan2) is the domestic line, Iranian addresses go over it, everything else over the first. To undo, over SSH:',
+		dualwanOff: 'To use the router’s second port for a domestic line while the first has Starlink, run this over SSH. The wired LAN port stops being LAN; Wi-Fi stays.',
+		sBackup: 'Backup', backup: 'Back up everything', backupHint: 'Servers, subscriptions, rules, devices and settings in one file. Keep it private: it holds your server keys.',
+		download: 'Download', restore: 'Restore from a file', restoreHint: 'Replaces everything here with the file’s contents',
+		chooseFile: 'Choose file', notBackup: 'Not a FoxGozar backup file', restored: 'Restored: {0} servers, {1} subscriptions, {2} devices',
 		installed: 'Installed: {0}', notInstalled: 'Not installed', updateCore: 'Update {0}', updateRules: 'Update rule-sets',
 		updating: 'Updating…', theme: 'Theme', lang: 'فارسی',
 		offline: 'The FoxGozar service is not answering. It may be starting; this page retries by itself.',
@@ -97,8 +128,11 @@ var T = {
 		devices: 'دستگاه‌ها', newDevices: 'دستگاه‌هایی که تنظیم جداگانه ندارند', viaTunnel: 'از تونل', direct: 'مستقیم، بدون تونل', block: 'بدون اینترنت', viaServer: 'از طریق {0}',
 		noDevices: 'هنوز دستگاهی دیده نشده', noDevicesHint: 'دستگاه‌ها بعد از وصل شدن به روتر این‌جا نمایش داده می‌شوند.', offlineDev: 'آفلاین', rename: 'تغییر نام', devName: 'نام دستگاه',
 		usageHint: 'مصرف از تونل از زمان شروع سرویس روتر', directNotMeasured: 'ترافیک مستقیم شمرده نمی‌شود', server: 'سرور',
+		schedule: 'ساعت‌های بدون اینترنت', scheduleHint: 'هر روز، بین این دو ساعت اینترنت قطع است. می‌تواند از نیمه‌شب رد شود، مثلاً ۲۳:۰۰ تا ۰۷:۰۰.',
+		scheduleOn: 'ساعت‌های بدون اینترنت روشن', from: 'از', to: 'تا', offHours: 'بدون اینترنت از {0} تا {1}', pausedNow: 'الان بدون اینترنت، تا {0}',
 		nodes: 'سرورها', subs: 'اشتراک‌ها', rules: 'مسیریابی', settings: 'تنظیمات', logs: 'گزارش',
 		auto: 'سریع‌ترین، خودکار', autoHint: 'وقتی سروری کند یا قطع شود، خودش عوض می‌کند',
+		autoSub: 'سریع‌ترین همین اشتراک', autoSubHint: 'خودکار انتخاب می‌کند، ولی فقط بین سرورهای همین اشتراک',
 		addedByYou: 'افزوده‌شده توسط شما', add: 'افزودن سرور', testAll: 'تست همه', removeFailed: 'حذف خراب‌ها',
 		search: 'جستجوی سرور', test: 'تست', remove: 'حذف', failedShort: 'خراب',
 		noNodes: 'هنوز سروری ندارید', noNodesHint: 'لینک کانفیگ (vless://، vmess://، trojan://، ss://، hy2:// …) یا یک اشتراک اضافه کنید.',
@@ -110,17 +144,19 @@ var T = {
 		update: 'به‌روزرسانی', updated: 'به‌روز شد', noSubs: 'اشتراکی ندارید', noSubsHint: 'اشتراک، سرورهایش را خودش به‌روز نگه می‌دارد.',
 		servers: '{0} سرور', expires: '{0} روز مانده', expired: 'منقضی شده', lastUpdate: 'به‌روزرسانی {0}',
 		every: 'هر {0} ساعت', of: '{0} از {1}',
+		subExpired: 'اشتراک «{0}» منقضی شده', subExpiresSoon: 'اشتراک «{0}» {1} روز دیگر تمام می‌شود', subAlmostUsed: 'اشتراک «{0}»: {1}٪ حجم مصرف شده',
 		iranDirect: 'سایت‌های ایرانی مستقیم', iranDirectHint: 'سریع‌تر است و از حجم سرور شما کم نمی‌کند',
 		blockAds: 'مسدودسازی تبلیغات', blockAdsHint: 'دامنه‌های تبلیغاتی و ردیاب ایرانی و خارجی، برای همه دستگاه‌ها. تبلیغ‌های داخل ویدیوهای یوتیوب از همان سرورهای خود ویدیو می‌آیند و هیچ روتری نمی‌تواند جلویشان را بگیرد؛ برای آن‌ها در مرورگر uBlock Origin و در اندروید ReVanced یا SmartTube را استفاده کنید.',
 		blockMalware: 'مسدودسازی بدافزار و فیشینگ', blockMalwareHint: 'آدرس‌های شناخته‌شده بدافزار، فیشینگ و استخراج رمزارز',
 		quicBlock: 'بستن QUIC', quicBlockHint: 'ویدیو و مرورگر از TCP استفاده می‌کنند؛ روی بعضی سرورها بهتر است',
-		customRules: 'قوانین شما', addRule: 'افزودن قانون', rulePlaceholder: 'دامنه یا رنج IP، با کاما جدا کنید',
+		customRules: 'قوانین شما', addRule: 'افزودن قانون', rulePlaceholder: 'دامنه، رنج IP، keyword:کلمه یا لینک لیست',
+		rulesHelp: 'موارد را با کاما جدا کنید. example.com زیردامنه‌هایش را هم شامل می‌شود؛ keyword:google هر دامنه‌ای که google در آن باشد؛ لینک (https://…) به rule-set سینگ‌باکس یا یک لیست ساده دامنه دانلود می‌شود و هر روز به‌روز می‌شود.',
 		toDirect: 'مستقیم', toProxy: 'از تونل', toBlock: 'مسدود', save: 'ذخیره', saved: 'ذخیره شد',
 		noRules: 'هنوز قانونی ندارید. مثلاً openai.com از یک سرور مشخص.',
 		sConnection: 'اتصال', sDns: 'DNS', sNetwork: 'شبکه', sAdvanced: 'پیشرفته', sCores: 'هسته‌ها',
 		testUrl: 'آدرس تست', testUrlHint: 'برای اندازه‌گیری همه سرورها',
 		testInterval: 'تست هر چند ثانیه', tolerance: 'عوض کن وقتی این‌قدر سریع‌تر است (ms)', toleranceHint: 'از پریدن بین سرورهای تقریباً هم‌سرعت جلوگیری می‌کند',
-		remoteDns: 'DNS از داخل تونل', directDns: 'DNS سایت‌های مستقیم', fakeIp: 'Fake IP', fakeIpHint: 'اتصال اول سریع‌تر؛ بعضی برنامه‌ها با آن مشکل دارند',
+		remoteDns: 'DNS از داخل تونل', directDns: 'DNS سایت‌های مستقیم', directDnsHint: 'isp یعنی DNS اپراتور اینترنت شما (برای سایت‌های ایرانی بهترین است)، یا یک آدرس مثل udp://8.8.8.8', fakeIp: 'Fake IP', fakeIpHint: 'اتصال اول سریع‌تر؛ بعضی برنامه‌ها با آن مشکل دارند',
 		proxyRouter: 'ترافیک خود روتر از تونل', ipv6: 'IPv6', killSwitch: 'کیل‌سوییچ', killSwitchHint: 'وقتی تونل قطع است دستگاه‌ها آفلاین می‌مانند، نه بدون محافظت',
 		lan: 'اینترفیس‌های LAN', lanHint: 'با کاما جدا کنید، معمولاً br-lan',
 		mux: 'Multiplex', muxHint: 'روی سرورهایی که پشتیبانی می‌کنند، هندشیک کمتر',
@@ -128,6 +164,32 @@ var T = {
 		keepWarm: 'هسته آماده بماند', keepWarmHint: 'اتصال زیر یک ثانیه؛ حدود ۴۰ مگابایت رم',
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
+		quick: 'دسترسی سریع', qServer: 'سرور', qAuto: 'خودکار', qManual: 'دستی', qIran: 'سایت‌های ایرانی', qDirect: 'مستقیم', qTunnel: 'از تونل', on: 'روشن', off: 'خاموش',
+		cConn: 'مدت اتصال', cMemory: 'رم هسته', cBest: 'بهترین سرور', cAvg: 'میانگین', cTraffic: 'ترافیک', cNow: 'الان', cTotal: 'کل',
+		cSub: 'اشتراک', cQuota: 'مصرف', cServers: 'سرورها', cWorking: 'جواب می‌دهند',
+		sSharing: 'اشتراک اینترنت این روتر', sharing: 'سرور اشتراک‌گذاری',
+		sharingHint: 'برای قطعی اینترنت: وقتی روتر استارلینک (یا راه دیگری به بیرون) دارد، بقیه از طریق اینترنت داخلی به اینجا وصل می‌شوند و از آن استفاده می‌کنند. هر نفر پایین یک حساب جدا می‌گیرد.',
+		newKeyDone: 'کلید جدید سرور ساخته شد: لینک همه حساب‌ها عوض شد، دوباره بفرستید',
+		share: 'اشتراک‌گذاری', sharingNoUsers: 'روشن است ولی هنوز حسابی ندارد: پایین یکی بسازید', sharingOff: 'اجرا نمی‌شود',
+		newKeyHint: 'لینک همه حساب‌ها را یک‌جا عوض می‌کند', accounts: 'حساب‌ها ({0})', addAccount: 'حساب جدید',
+		accountsHint: 'برای هر نفر یک حساب، تا ببینید چه کسی چقدر مصرف می‌کند و بتوانید هر کدام را جدا متوقف یا حذف کنید. لینک را حضوری (QR) یا با پیامک بدهید؛ پیام‌رسان‌های داخلی زیر نظرند. در قطعی، فروشگاه‌های برنامه کار نمی‌کنند: هر کس باید v2rayNG، Hiddify یا Streisand را از قبل نصب کرده باشد، یا فایل برنامه را از شما بگیرد.',
+		noAccounts: 'هنوز حسابی نیست', noAccountsHint: 'برای هر کسی که باید از اینترنت این روتر استفاده کند یک حساب بسازید.',
+		onlineNow: 'الان وصل است ({0})', lastSeen: 'آخرین استفاده {0}', neverSeen: 'هنوز استفاده نشده',
+		pausedLimit: 'متوقف: حجمش تمام شد', pausedByYou: 'متوقف', accountOn: 'حساب روشن',
+		removeAccount: 'برای حذف حساب {0} دوباره بزنید', accountName: 'برای چه کسی', accountNamePh: 'نام، مثلاً سارا',
+		limitGB: 'سقف حجم (گیگابایت)', noLimit: 'بدون سقف', resetUsage: 'صفر کردن مصرف', newLink: 'لینک جدید (لینک قبلی دیگر کار نمی‌کند)',
+		addAccountHint: 'برای این نفر یک لینک جدا ساخته می‌شود؛ بلافاصله بعدش می‌توانید بفرستید.', newLinkDone: 'لینک جدید ساخته شد: دوباره بفرستید',
+		copyMessage: 'کپی پیام',
+		howToUse: 'این لینک فقط برای شماست؛ آن را به کسی ندهید.\nاندروید: v2rayNG یا Hiddify را نصب کنید، لینک زیر را کپی کنید، در برنامه «Import from clipboard» را بزنید و وصل شوید.\nآیفون: Streisand یا V2Box را نصب کنید و همین کار را بکنید.\nاگر وصل نشد به من خبر بدهید.',
+		sharingPort: 'پورت', sharingPortHint: 'اگر مودم داخلی خودش روتر است، این پورت TCP را روی آن به این روتر فوروارد کنید',
+		sharingSni: 'شبیه بازدید از', sharingSniHint: 'یک سایت پربازدید با TLS 1.3. هر کس پورت را بررسی کند همان سایت را می‌بیند.',
+		sharingOn: 'در حال اجرا', sharingDown: 'هنوز اجرا نشده؛ گزارش را ببینید', sharingAt: 'بقیه به {0} وصل می‌شوند (روی {1})',
+		sharingNoAddr: 'روتر هنوز آدرس اینترنت ندارد', showLink: 'لینک و QR', newKey: 'کلید جدید',
+		dualwanOn: 'دو پورت اینترنت روشن است: پورت دوم (wan2) اینترنت داخلی است و آدرس‌های ایرانی از آن می‌روند، بقیه از پورت اول. برای برگرداندن، در SSH:',
+		dualwanOff: 'برای اینکه پورت دوم روتر اینترنت داخلی بگیرد و پورت اول استارلینک باشد، این را در SSH بزنید. پورت LAN سیمی دیگر LAN نیست؛ وای‌فای می‌ماند.',
+		sBackup: 'پشتیبان', backup: 'پشتیبان از همه چیز', backupHint: 'سرورها، اشتراک‌ها، قوانین، دستگاه‌ها و تنظیمات در یک فایل. آن را به کسی ندهید: کلیدهای سرورهایتان در آن است.',
+		download: 'دانلود', restore: 'بازگردانی از فایل', restoreHint: 'همه چیز اینجا با محتوای فایل جایگزین می‌شود',
+		chooseFile: 'انتخاب فایل', notBackup: 'این فایل پشتیبان فاکس‌گذر نیست', restored: 'بازگردانی شد: {0} سرور، {1} اشتراک، {2} دستگاه',
 		installed: 'نصب‌شده: {0}', notInstalled: 'نصب نیست', updateCore: 'به‌روزرسانی {0}', updateRules: 'به‌روزرسانی rule-setها',
 		updating: 'در حال به‌روزرسانی…', theme: 'تم', lang: 'English',
 		offline: 'سرویس فاکس‌گذر جواب نمی‌دهد. شاید در حال اجراست؛ این صفحه خودش دوباره تلاش می‌کند.',
@@ -232,6 +294,7 @@ function busy(btn, p) {
 }
 
 var ICON = {
+	clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
 	power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>',
 	bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
 	pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>',
@@ -248,7 +311,7 @@ var S = {
 	tab: 'nodes', status: null, nodes: [], devices: [], hist: [], games: null, showTable: false, subs: [], rules: [], settings: null, cores: {},
 	speed: { up: 0, down: 0 }, filter: '', offline: false, logSeq: 0, logLines: []
 };
-var root, heroEl, panelEl, tabsEl;
+var root, heroEl, statsEl, panelEl, tabsEl;
 
 function savedTheme() {
 	try { return localStorage.getItem('fgz-theme'); } catch (e) { return null; }
@@ -277,6 +340,7 @@ function render() {
 			} }, t('lang'))
 		]),
 		heroEl = h('section', { 'class': 'fgz-hero', 'aria-live': 'polite' }),
+		statsEl = h('section', { 'class': 'fgz-cards' }),
 		tabsEl = h('nav', { 'class': 'fgz-tabs', role: 'tablist' }),
 		panelEl = h('section', { role: 'tabpanel' })
 	);
@@ -309,18 +373,19 @@ function renderHero() {
 		}
 	}, [icon('power')]);
 
-	var facts = [];
+	// Connected: the status goes into the pill and the server becomes the
+	// title, with its protocol and delay under it.
+	var pill = h('span', { 'class': 'fgz-pill' }, [h('i'), title, h('span', { 'class': 'ver' }, '· ' + (lang === 'fa' ? 'فاکس‌گذر' : 'FoxGozar') + ' ' + VERSION)]);
 	if (phase === 'connected') {
-		if (st.delay) facts.push(h('span', {}, [t('delay') + ' ', h('b', { 'class': 'num', dir: 'ltr' }, num(st.delay) + ' ms')]));
-		facts.push(h('span', {}, [t('used') + ' ', h('b', { 'class': 'num', dir: 'ltr' }, bytes((st.upload || 0) + (st.download || 0)))]));
-		facts.push(h('span', {}, [t('conns') + ' ', h('b', { 'class': 'num' }, num(st.connections || 0))]));
-		facts.push(h('span', {}, [t('upFor') + ' ', h('b', { 'class': 'num', id: 'fgz-uptime' }, duration(Date.now() / 1000 - st.since))]));
+		var node = (S.nodes || []).filter(function(n) { return n.id === st.current; })[0];
+		title = st.backup ? 'WARP' : (st.current_name || title);
+		sub = st.backup ? t('viaWarp') : present([node && node.type, st.delay ? num(st.delay) + ' ms' : null]).join(' · ');
 	}
 
 	heroEl.replaceChildren.apply(heroEl, present([
 		h('div', { 'class': 'fgz-dial' }, [h('span', { html: RINGS, style: 'display:contents' }), power]),
 		h('div', { 'class': 'fgz-info' }, present([
-		h('div', { 'class': 'fgz-state' }, [h('h2', {}, title), sub ? h('p', {}, sub) : null]),
+		h('div', { 'class': 'fgz-state' }, [pill, h('h2', { dir: 'auto', 'class': phase === 'connected' ? 'srv' : null }, title), sub ? h('p', { dir: phase === 'connected' ? 'ltr' : null, 'class': phase === 'connected' ? 'num' : null }, sub) : null]),
 		h('div', { 'class': 'fgz-passage', 'aria-hidden': 'true' }, [
 			h('div', { 'class': 'fgz-end' }, [h('b', {}, t('yourNet'))]),
 			h('div', { 'class': 'fgz-mid' }, [
@@ -328,12 +393,121 @@ function renderHero() {
 				h('div', { 'class': 'fgz-track' }, [h('i'), h('i')])
 			]),
 			h('div', { 'class': 'fgz-end' }, [h('b', {}, phase === 'connected' ? (st.backup ? 'WARP' : countryOf(st.current_name) || t('exit')) : t('exit'))])
-		]),
-		facts.length ? h('div', { 'class': 'fgz-facts' }, facts) : null
+		])
 		])),
+		S.settings ? quickControls() : null,
 		phase === 'failed' && st.message ? h('div', { 'class': 'fgz-alert', role: 'alert' }, st.message) : null,
+		subWarning(),
 		S.offline ? h('div', { 'class': 'fgz-alert', role: 'alert' }, t('offline')) : null
 	]));
+	renderStats();
+}
+
+// The settings people change most, one press away: segmented buttons.
+function quickControls() {
+	var s = S.settings, st = S.status || {};
+	var seg = function(label, opts, cur, pick) {
+		return h('div', { 'class': 'fgz-q' }, [
+			h('span', {}, label),
+			h('div', { 'class': 'fgz-seg', role: 'radiogroup', 'aria-label': label }, opts.map(function(o) {
+				return h('button', { type: 'button', role: 'radio', 'aria-checked': o[0] === cur ? 'true' : 'false',
+					onclick: function() { if (o[0] !== cur) pick(o[0]); } }, o[1]);
+			}))
+		]);
+	};
+	var save = function(patch) { saveSetting(patch).then(renderHero); };
+	return h('div', { 'class': 'fgz-quick' }, [
+		h('small', { 'class': 'fgz-quick-title' }, t('quick')),
+		seg(t('qServer'), [['auto', t('qAuto')], ['manual', t('qManual')]], s.mode === 'manual' ? 'manual' : 'auto', function(v) {
+			if (v === 'auto') choose('auto');
+			else if (st.current || (S.nodes && S.nodes[0])) choose(st.current || S.nodes[0].id);
+		}),
+		seg(t('qIran'), [[true, t('qDirect')], [false, t('qTunnel')]], !!s.iran_direct, function(v) { save({ iran_direct: v }); }),
+		seg(t('killSwitch'), [[true, t('on')], [false, t('off')]], !!s.kill_switch, function(v) { save({ kill_switch: v }); })
+	]);
+}
+
+/* ---------- status cards under the hero */
+
+function card(label, big, rows, cls) {
+	return h('div', { 'class': 'fgz-card' + (cls ? ' ' + cls : '') }, [
+		h('small', { 'class': 'lbl' }, label),
+		h('div', { 'class': 'big num' }, h('span', { dir: 'ltr' }, big)),
+		h('dl', {}, rows.filter(Boolean).map(function(r) { return h('div', {}, [h('dt', {}, r[0]), h('dd', { 'class': 'num', dir: 'ltr' }, r[1])]); }))
+	]);
+}
+
+function renderStats() {
+	if (!statsEl) return;
+	var st = S.status || {}, on = st.phase === 'connected';
+	var dash = '—';
+	var delays = (S.nodes || []).map(function(n) { return n.delay; }).filter(function(d) { return d > 0; });
+	var best = delays.length ? Math.min.apply(null, delays) : 0;
+	var avg = delays.length ? Math.round(delays.reduce(function(a, b) { return a + b; }, 0) / delays.length) : 0;
+
+	var sub = (S.subs || []).filter(function(x) { return x.enabled && x.total; })[0] || (S.subs || [])[0];
+	var last;
+	if (sub) {
+		var used = (sub.upload || 0) + (sub.download || 0);
+		last = h('div', { 'class': 'fgz-card' }, [
+			h('small', { 'class': 'lbl' }, t('cSub')),
+			h('div', { 'class': 'big name', dir: 'auto' }, sub.name),
+			sub.total ? h('div', { 'class': 'fgz-meter' }, [h('i', { style: 'width:' + Math.min(100, used / sub.total * 100).toFixed(1) + '%' })]) : null,
+			h('dl', {}, present([
+				sub.total ? h('div', {}, [h('dt', {}, t('cQuota')), h('dd', { 'class': 'num', dir: 'ltr' }, bytes(used) + ' / ' + bytes(sub.total))]) : null,
+				h('div', {}, [h('dt', {}, t('cServers')), h('dd', { 'class': 'num' }, num(sub.node_count || 0))])
+			]))
+		].filter(Boolean));
+	} else {
+		var ok = (S.nodes || []).filter(function(n) { return n.delay > 0; }).length;
+		last = card(t('cServers'), num((S.nodes || []).length), [[t('cWorking'), num(ok)]]);
+	}
+
+	statsEl.replaceChildren(
+		card(t('cConn'), on ? h('span', { id: 'fgz-uptime' }, duration(Date.now() / 1000 - st.since)) : dash, [
+			[t('conns'), on ? num(st.connections || 0) : dash],
+			[t('cMemory'), on && st.memory ? bytes(st.memory) : dash]
+		]),
+		card(t('delay'), on && st.delay ? num(st.delay) + ' ms' : dash, [
+			[t('cBest'), best ? num(best) + ' ms' : dash],
+			[t('cAvg'), avg ? num(avg) + ' ms' : dash]
+		]),
+		h('div', { 'class': 'fgz-card' }, [
+			h('small', { 'class': 'lbl' }, t('cTraffic')),
+			h('div', { 'class': 'fgz-flow' }, [
+				h('div', {}, [h('small', {}, t('cNow')), h('div', { id: 'fgz-live', 'class': 'num', dir: 'ltr' }, liveKids())]),
+				h('div', {}, [h('small', {}, t('cTotal')), h('div', { 'class': 'num', dir: 'ltr' }, [
+					h('b', { 'class': 'dn' }, 'Σ↓ ' + (on ? bytes(st.download || 0) : dash)),
+					h('b', { 'class': 'up' }, 'Σ↑ ' + (on ? bytes(st.upload || 0) : dash))
+				])])
+			])
+		]),
+		last
+	);
+}
+
+function liveKids() {
+	return [h('b', { 'class': 'dn' }, '↓ ' + rate(S.speed.down)), h('b', { 'class': 'up' }, '↑ ' + rate(S.speed.up))];
+}
+
+// A subscription about to run out, by date or by traffic: better known a
+// few days before than when the servers stop answering.
+function subWarning() {
+	var notes = [];
+	(S.subs || []).forEach(function(s) {
+		if (!s.enabled) return;
+		// Isolated, so a Latin name keeps its place inside Persian text.
+		var name = '⁨' + s.name + '⁩';
+		var used = (s.upload || 0) + (s.download || 0);
+		if (s.expire) {
+			var days = Math.floor((s.expire * 1000 - Date.now()) / 864e5);
+			if (days < 0) { notes.push(t('subExpired', name)); return; }
+			if (days <= 3) { notes.push(t('subExpiresSoon', name, days)); return; }
+		}
+		if (s.total && used / s.total >= 0.9)
+			notes.push(t('subAlmostUsed', name, Math.round(used / s.total * 100)));
+	});
+	return notes.length ? h('div', { 'class': 'fgz-alert warn' }, notes.map(function(n) { return h('div', {}, n); })) : null;
 }
 
 function speedKids() {
@@ -359,7 +533,7 @@ var RINGS = '<svg class="fgz-rings" viewBox="0 0 200 200" aria-hidden="true">' +
 
 /* ---------- tabs */
 
-var TABS = ['nodes', 'network', 'devices', 'games', 'subs', 'rules', 'settings', 'logs'];
+var TABS = ['nodes', 'network', 'devices', 'games', 'subs', 'rules', 'share', 'settings', 'logs'];
 function renderTabs() {
 	tabsEl.replaceChildren.apply(tabsEl, TABS.map(function(k) {
 		return h('button', {
@@ -376,6 +550,7 @@ function loadTab() {
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
+	case 'share': p = api('GET', '/api/sharing').then(function(r) { S.sharing = r; }); break;
 	case 'network': p = api('GET', '/api/devices').then(function(r) { S.devices = r; }); break;
 	case 'games': p = Promise.all([api('GET', '/api/games'), api('GET', '/api/nodes')]).then(function(r) { S.games = r[0]; S.nodes = r[1]; }); break;
 	case 'devices': p = Promise.all([api('GET', '/api/devices'), api('GET', '/api/nodes')]).then(function(r) { S.devices = r[0]; S.nodes = r[1]; }); break;
@@ -386,7 +561,7 @@ function loadTab() {
 }
 
 function renderPanel() {
-	var fn = { nodes: panelNodes, network: panelNetwork, games: panelGames, devices: panelDevices, subs: panelSubs, rules: panelRules, settings: panelSettings, logs: panelLogs }[S.tab];
+	var fn = { nodes: panelNodes, network: panelNetwork, games: panelGames, devices: panelDevices, subs: panelSubs, rules: panelRules, share: panelShare, settings: panelSettings, logs: panelLogs }[S.tab];
 	panelEl.replaceChildren(fn());
 	// The charts need the panel in the page to know their width.
 	if (S.tab === 'network') { drawTraffic(); drawMap(); }
@@ -428,6 +603,11 @@ function panelNodes() {
 	if (!q) kids.push(row('auto', t('auto'), t('autoHint'), null, selected === 'auto', false));
 	order.forEach(function(g) {
 		if (order.length > 1 || g !== t('addedByYou')) kids.push(h('div', { 'class': 'fgz-group' }, g));
+		// The fastest of this subscription only (the router builds the group
+		// for subscriptions with two servers or more).
+		var subId = groups[g][0].sub, all = S.nodes.filter(function(n) { return n.sub && n.sub === subId; });
+		if (!q && subId && all.length >= 2)
+			kids.push(row('auto-' + subId, t('autoSub'), t('autoSubHint'), null, selected === 'auto-' + subId, false));
 		groups[g].forEach(function(n) {
 			var live = st.phase === 'connected' && st.current === n.id;
 			kids.push(row(n.id, n.name, n.type + (n.server ? '  ' + n.server : ''), n.delay, selected === n.id, live));
@@ -459,9 +639,9 @@ function row(id, name, sub, delay, checked, live) {
 		onkeydown: function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(id); } }
 	}, [
 		h('span', { 'class': 'dot' }),
-		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: 'ltr' }, sub) : null, serviceChips(id)]),
-		id === 'auto' || !delayText ? h('span') : h('span', { 'class': 'fgz-delay num', 'data-q': q, dir: delay > 0 ? 'ltr' : null }, delayText),
-		id === 'auto' ? h('span') : h('span', { style: 'display:flex' }, [
+		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: id.indexOf('auto') === 0 ? 'auto' : 'ltr' }, sub) : null, serviceChips(id)]),
+		id.indexOf('auto') === 0 || !delayText ? h('span') : h('span', { 'class': 'fgz-delay num', 'data-q': q, dir: delay > 0 ? 'ltr' : null }, delayText),
+		id.indexOf('auto') === 0 ? h('span') : h('span', { style: 'display:flex' }, [
 			h('button', { 'class': 'fgz-icon', title: t('test'), 'aria-label': t('test'), onclick: function(e) {
 				e.stopPropagation();
 				if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
@@ -508,26 +688,41 @@ function servicesBtn() {
 }
 
 function showShare(id, name) {
-	api('GET', '/api/nodes/' + id + '/share').then(function(r) {
-		var dlg = h('dialog', { 'class': 'fgz-dialog' });
-		var ta = h('textarea', { readonly: true, rows: 3, spellcheck: 'false' }, r.link);
-		var copy = h('button', { 'class': 'fgz-btn primary', type: 'button', onclick: function() {
-			var done = function() { copy.textContent = t('copied'); };
+	api('GET', '/api/nodes/' + id + '/share').then(function(r) { linkDialog(name, r); }).catch(function(e) { toast(e.message); });
+}
+
+// A link with its QR code (r.link, r.svg), ready to copy or scan. With
+// guide, a second button copies a whole message: the guide, then the link.
+function linkDialog(name, r, guide) {
+	var dlg = h('dialog', { 'class': 'fgz-dialog' });
+	var ta = h('textarea', { readonly: true, rows: 3, spellcheck: 'false' }, r.link);
+	var copyBtn = function(label, text, primary) {
+		var b = h('button', { 'class': 'fgz-btn' + (primary ? ' primary' : ''), type: 'button', onclick: function() {
+			var done = function() { b.textContent = t('copied'); };
 			if (navigator.clipboard && window.isSecureContext)
-				navigator.clipboard.writeText(r.link).then(done);
-			else { ta.select(); document.execCommand('copy'); done(); }
-		} }, t('copy'));
-		dlg.appendChild(h('form', { method: 'dialog' }, [
-			h('h3', { dir: 'auto' }, name),
-			r.svg ? h('div', { 'class': 'fgz-qr', html: r.svg, role: 'img', 'aria-label': 'QR' }) : null,
-			h('p', {}, r.svg ? t('scanHint') : t('qrTooLong')),
-			ta,
-			h('div', { 'class': 'fgz-actions' }, [h('button', { 'class': 'fgz-btn', value: 'close' }, t('close')), copy])
-		]));
-		dlg.addEventListener('close', function() { dlg.remove(); });
-		root.appendChild(dlg);
-		dlg.showModal();
-	}).catch(function(e) { toast(e.message); });
+				navigator.clipboard.writeText(text).then(done);
+			else {
+				var tmp = h('textarea', { style: 'position:fixed;opacity:0' }, text);
+				dlg.appendChild(tmp); tmp.select(); document.execCommand('copy'); tmp.remove(); done();
+			}
+		} }, label);
+		return b;
+	};
+	dlg.appendChild(h('form', { method: 'dialog' }, present([
+		h('h3', { dir: 'auto' }, name),
+		r.svg ? h('div', { 'class': 'fgz-qr', html: r.svg, role: 'img', 'aria-label': 'QR' }) : null,
+		h('p', {}, r.svg ? t('scanHint') : t('qrTooLong')),
+		ta,
+		guide ? h('p', { 'class': 'fgz-guide' }, guide) : null,
+		h('div', { 'class': 'fgz-actions' }, present([
+			h('button', { 'class': 'fgz-btn', value: 'close' }, t('close')),
+			guide ? copyBtn(t('copyMessage'), guide + '\n\n' + r.link, false) : null,
+			copyBtn(t('copy'), r.link, true)
+		]))
+	])));
+	dlg.addEventListener('close', function() { dlg.remove(); });
+	root.appendChild(dlg);
+	dlg.showModal();
 }
 
 function choose(id) {
@@ -617,21 +812,43 @@ function deviceRow(d) {
 			return h('option', { value: o[0], selected: value === o[0] }, o[1]);
 		}))] : []));
 
-	return h('div', { 'class': 'fgz-dev', 'data-policy': d.policy }, [
+	var sc = d.schedule;
+	return h('div', { 'class': 'fgz-dev', 'data-policy': d.paused ? 'block' : d.policy }, [
 		h('span', { 'class': 'state', 'data-on': d.online ? '1' : '0', title: d.online ? '' : t('offlineDev') }),
-		h('div', { 'class': 'name' }, [
+		h('div', { 'class': 'name' }, present([
 			h('b', { dir: 'auto' }, d.name || d.mac),
 			h('small', { dir: 'ltr' }, (d.ip ? d.ip + '  ' : '') + d.mac + (d.online ? '' : '  (' + t('offlineDev') + ')')),
-			usage
-		]),
+			usage,
+			sc ? h('small', { 'class': d.paused ? 'paused' : null }, d.paused ? t('pausedNow', sc.to) : t('offHours', sc.from, sc.to)) : null
+		])),
 		sel,
-		h('button', { 'class': 'fgz-icon', title: t('rename'), 'aria-label': t('rename'), onclick: function() {
-			var input = h('input', { type: 'text', value: d.name || '', placeholder: d.hostname || d.mac });
-			dialog(t('rename'), d.mac, [h('label', {}, [t('devName'), input])], t('save'), function() {
-				return api('PUT', '/api/devices/' + d.mac, { name: input.value }).then(loadTab);
-			});
-		} }, [icon('pencil')])
+		h('span', { 'class': 'acts' }, [
+			h('button', { 'class': 'fgz-icon', title: t('schedule'), 'aria-label': t('schedule'), 'data-on': sc ? '1' : null,
+				onclick: function() { dialogSchedule(d); } }, [icon('clock')]),
+			h('button', { 'class': 'fgz-icon', title: t('rename'), 'aria-label': t('rename'), onclick: function() {
+				var input = h('input', { type: 'text', value: d.name || '', placeholder: d.hostname || d.mac });
+				dialog(t('rename'), d.mac, [h('label', {}, [t('devName'), input])], t('save'), function() {
+					return api('PUT', '/api/devices/' + d.mac, { name: input.value }).then(loadTab);
+				});
+			} }, [icon('pencil')])
+		])
 	]);
+}
+
+// Offline hours. Times are the user's own: the browser's offset from UTC
+// goes with them, because the router's clock is usually UTC.
+function dialogSchedule(d) {
+	var sc = d.schedule || { from: '23:00', to: '07:00' };
+	var on = h('input', { type: 'checkbox', 'class': 'fgz-switch', checked: !!d.schedule });
+	var from = h('input', { type: 'time', 'class': 'ltr', value: sc.from, required: true });
+	var to = h('input', { type: 'time', 'class': 'ltr', value: sc.to, required: true });
+	dialog(t('schedule'), t('scheduleHint'), [
+		h('label', { 'class': 'fgz-check' }, [on, t('scheduleOn')]),
+		h('div', { 'class': 'fgz-two' }, [h('label', {}, [t('from'), from]), h('label', {}, [t('to'), to])])
+	], t('save'), function() {
+		var body = { schedule: on.checked ? { from: from.value, to: to.value, tz: -new Date().getTimezoneOffset() } : null };
+		return api('PUT', '/api/devices/' + d.mac, body).then(loadTab);
+	});
 }
 
 /* ---------- network: traffic chart and map */
@@ -966,15 +1183,18 @@ function panelRules() {
 		.concat(S.nodes.map(function(n) { return [n.id, n.name]; }));
 
 	var list = S.rules.map(function(r, i) {
-		var text = (r.domains || []).concat(r.ips || []).join(', ');
+		var text = (r.domains || []).concat((r.keywords || []).map(function(k) { return 'keyword:' + k; }), r.ips || [], r.urls || []).join(', ');
 		return h('div', { 'class': 'fgz-rule' }, [
 			h('input', { type: 'checkbox', 'class': 'fgz-switch', checked: r.enabled, 'aria-label': t('customRules'),
 				onchange: function(e) { r.enabled = e.target.checked; } }),
 			h('input', { type: 'text', 'class': 'ltr', value: text, placeholder: t('rulePlaceholder'),
 				onchange: function(e) {
+					// domain, 1.2.3.0/24, keyword:word, or a link to a list
 					var parts = e.target.value.split(/[,\s]+/).filter(Boolean);
+					r.urls = parts.filter(function(p) { return /^https?:\/\//i.test(p); });
+					r.keywords = parts.filter(function(p) { return /^keyword:./i.test(p); }).map(function(p) { return p.slice(8); });
 					r.ips = parts.filter(function(p) { return /^[\d.:a-f]+\/\d+$|^\d+\.\d+\.\d+\.\d+$/i.test(p); });
-					r.domains = parts.filter(function(p) { return r.ips.indexOf(p) < 0; });
+					r.domains = parts.filter(function(p) { return r.ips.indexOf(p) < 0 && r.urls.indexOf(p) < 0 && !/^keyword:/i.test(p); });
 				} }),
 			h('select', { dir: ['direct', 'proxy', 'block'].indexOf(r.target) < 0 ? 'ltr' : null,
 				onchange: function(e) { r.target = e.target.value; e.target.dir = ['direct', 'proxy', 'block'].indexOf(r.target) < 0 ? 'ltr' : ''; } }, targets.map(function(o) {
@@ -995,7 +1215,8 @@ function panelRules() {
 				busy(e.currentTarget, api('PUT', '/api/rules', S.rules).then(function(r) { S.rules = r; toast(t('saved')); renderPanel(); })
 					.catch(function(err) { toast(err.message); }));
 			} }, t('save'))
-		])
+		]),
+		h('p', { 'class': 'fgz-help' }, t('rulesHelp'))
 	].concat(list.length ? list : [h('div', { 'class': 'fgz-empty' }, t('noRules'))]));
 
 	return h('div', {}, [toggles, custom]);
@@ -1094,7 +1315,7 @@ function panelSettings() {
 		]),
 		section(t('sDns'), [
 			inputField('remote_dns', t('remoteDns'), 'https://1.1.1.1/dns-query'),
-			inputField('direct_dns', t('directDns'), 'udp://8.8.8.8'),
+			inputField('direct_dns', t('directDns'), t('directDnsHint')),
 			switchField('fake_ip', t('fakeIp'), t('fakeIpHint'))
 		]),
 		section(t('sNetwork'), [
@@ -1113,6 +1334,28 @@ function panelSettings() {
 			selectField('log_level', t('logLevel'), ['error', 'warn', 'info', 'debug']),
 			inputField('github_mirror', t('mirror'), t('mirrorHint'), 'url')
 		]),
+		section(t('sBackup'), [
+			h('div', { 'class': 'fgz-field' }, [
+				h('label', {}, [t('backup'), h('small', {}, t('backupHint'))]),
+				h('a', { 'class': 'fgz-btn', href: BASE + '/api/backup?sid=' + encodeURIComponent(SID), download: 'foxgozar-backup.json' }, t('download'))
+			]),
+			h('div', { 'class': 'fgz-field' }, [
+				h('label', { 'for': 'fgz-restore' }, [t('restore'), h('small', {}, t('restoreHint'))]),
+				h('label', { 'class': 'fgz-btn' }, [t('chooseFile'), h('input', { id: 'fgz-restore', type: 'file', accept: '.json,application/json', hidden: true,
+					onchange: function(e) {
+						var f = e.target.files[0];
+						if (!f) return;
+						f.text().then(function(txt) {
+							var body;
+							try { body = JSON.parse(txt); } catch (x) { throw new Error(t('notBackup')); }
+							return api('POST', '/api/restore', body);
+						}).then(function(r) {
+							toast(t('restored', r.nodes, r.subscriptions, r.devices));
+							return api('GET', '/api/settings').then(function(s) { S.settings = s; loadTab(); });
+						}).catch(function(err) { toast(err.message); e.target.value = ''; });
+					} })])
+			])
+		]),
 		section(t('sCores'), [
 			coreRow('sing-box', 'sing-box'),
 			coreRow('xray', 'Xray'),
@@ -1130,6 +1373,148 @@ function panelSettings() {
 			])
 		])
 	]);
+}
+
+// Sharing this router's internet with people on the domestic network: for
+// a shutdown, with Starlink (or any second way out) on the router.
+function sharingFields() {
+	var sh = S.sharing;
+	if (!sh) return [];
+	var put = function(body, btn) {
+		var p = api('PUT', '/api/sharing', body).then(function(r) { S.sharing = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); renderPanel(); });
+		if (btn) busy(btn, p);
+		return p;
+	};
+	var cur = function() { return { enabled: sh.enabled, port: sh.port, sni: sh.sni }; };
+	var status = !sh.enabled ? null
+		: !sh.users.some(function(u) { return u.enabled; }) ? t('sharingNoUsers')
+		: !sh.running ? t('sharingDown')
+		: sh.address ? t('sharingAt', sh.address + ':' + sh.port, sh.via) : t('sharingNoAddr');
+	var fields = [
+		h('div', { 'class': 'fgz-field' }, [
+			h('label', { 'for': 'fgz-sharing' }, [t('sharing'), h('small', {}, t('sharingHint'))]),
+			h('input', { id: 'fgz-sharing', type: 'checkbox', 'class': 'fgz-switch', checked: !!sh.enabled,
+				onchange: function(e) { var b = cur(); b.enabled = e.target.checked; put(b); } })
+		]),
+		h('div', { 'class': 'fgz-field' }, [
+			h('label', { 'for': 'fgz-sharing-port' }, [t('sharingPort'), h('small', {}, t('sharingPortHint'))]),
+			h('input', { id: 'fgz-sharing-port', type: 'number', 'class': 'ltr', value: sh.port,
+				onchange: function(e) { var b = cur(); b.port = parseInt(e.target.value, 10) || 0; put(b); } })
+		]),
+		h('div', { 'class': 'fgz-field' }, [
+			h('label', { 'for': 'fgz-sharing-sni' }, [t('sharingSni'), h('small', {}, t('sharingSniHint'))]),
+			h('input', { id: 'fgz-sharing-sni', type: 'text', 'class': 'ltr', value: sh.sni,
+				onchange: function(e) { var b = cur(); b.sni = e.target.value; put(b); } })
+		])
+	];
+	if (status)
+		fields.push(h('div', { 'class': 'fgz-field' }, [
+			h('label', {}, [sh.running ? t('sharingOn') : t('sharingOff'), h('small', { 'class': 'num' }, status)]),
+			h('button', { 'class': 'fgz-btn', title: t('newKeyHint'), onclick: function(e) {
+				var b = cur(); b.new_key = true;
+				put(b, e.currentTarget).then(function() { toast(t('newKeyDone')); });
+			} }, t('newKey'))
+		]));
+	fields.push(h('p', { 'class': 'fgz-help', style: 'padding-top:12px' }, [
+		sh.dualwan ? t('dualwanOn') : t('dualwanOff'), ' ',
+		h('code', { dir: 'ltr' }, sh.dualwan ? 'foxgozar dualwan off --yes' : 'foxgozar dualwan on --yes')
+	]));
+	return fields;
+}
+
+/* ---------- sharing: one account per person */
+
+function panelShare() {
+	var sh = S.sharing;
+	if (!sh) return h('div');
+	var users = sh.users || [];
+	var list = h('div', { 'class': 'fgz-panel' }, [
+		h('div', { 'class': 'fgz-bar' }, [
+			h('b', { 'class': 'grow' }, t('accounts', users.length)),
+			h('button', { 'class': 'fgz-btn primary', onclick: dialogAccount }, t('addAccount'))
+		]),
+		h('p', { 'class': 'fgz-help' }, t('accountsHint'))
+	].concat(users.length ? users.map(accountRow) : [h('div', { 'class': 'fgz-empty' }, [h('b', {}, t('noAccounts')), t('noAccountsHint')])]));
+	return h('div', {}, [
+		section(t('sSharing'), sharingFields()),
+		h('div', { 'class': 'fgz-section' }, [list])
+	]);
+}
+
+function accountRow(u) {
+	var used = (u.up || 0) + (u.down || 0);
+	var meta = [h('span', { 'class': 'num', dir: 'ltr' }, '↓ ' + bytes(u.down) + '  ↑ ' + bytes(u.up))];
+	if (u.limit) meta.push(h('span', { 'class': 'num' }, t('of', bytes(used), bytes(u.limit))));
+	if (u.online) meta.push(h('span', { 'class': 'num', dir: 'ltr' }, rate(u.rate_down + u.rate_up)));
+	meta.push(h('span', {}, u.online ? t('onlineNow', u.connections) : u.last_seen ? t('lastSeen', ago(u.last_seen)) : t('neverSeen')));
+	var edit = function(body) {
+		return api('PUT', '/api/sharing/users/' + u.id, body).then(function(r) { S.sharing = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); });
+	};
+	return h('div', { 'class': 'fgz-acct', 'data-on': u.enabled ? '1' : '0' }, [
+		h('span', { 'class': 'state', 'data-on': u.online ? '1' : '0' }),
+		h('div', { 'class': 'name' }, present([
+			h('b', { dir: 'auto' }, u.name),
+			u.limit ? h('div', { 'class': 'fgz-meter' }, [h('i', { style: 'width:' + Math.min(100, used / u.limit * 100).toFixed(1) + '%' })]) : null,
+			h('div', { 'class': 'fgz-sub-meta' }, meta),
+			u.enabled ? null : h('small', { 'class': 'paused' }, u.limit && used >= u.limit ? t('pausedLimit') : t('pausedByYou'))
+		])),
+		h('span', { 'class': 'acts' }, [
+			h('button', { 'class': 'fgz-icon', title: t('showLink'), 'aria-label': t('showLink'), onclick: function() { accountLink(u); } }, [icon('qr')]),
+			h('input', { type: 'checkbox', 'class': 'fgz-switch', checked: u.enabled, title: t('accountOn'), 'aria-label': t('accountOn'),
+				onchange: function(e) { edit({ enabled: e.target.checked }); } }),
+			h('button', { 'class': 'fgz-icon', title: t('rename'), 'aria-label': t('rename'), onclick: function() { dialogAccount(u); } }, [icon('pencil')]),
+			h('button', { 'class': 'fgz-icon', title: t('remove'), 'aria-label': t('remove'), onclick: function() {
+				if (!confirmInline(this, t('removeAccount', u.name))) return;
+				api('DELETE', '/api/sharing/users/' + u.id).then(function(r) { S.sharing = r; renderPanel(); }).catch(function(err) { toast(err.message); });
+			} }, [icon('trash')])
+		])
+	]);
+}
+
+// A destructive button asks once by changing its title, then acts on the
+// second press (no browser dialogs: they freeze LuCI on some phones).
+function confirmInline(btn, msg) {
+	if (btn.getAttribute('data-armed')) return true;
+	btn.setAttribute('data-armed', '1');
+	btn.classList.add('armed');
+	toast(msg);
+	setTimeout(function() { btn.removeAttribute('data-armed'); btn.classList.remove('armed'); }, 4000);
+	return false;
+}
+
+// New account (no argument) or changes to one.
+function dialogAccount(u) {
+	var isNew = !u || !u.id;
+	var name = h('input', { type: 'text', required: true, value: isNew ? '' : u.name, placeholder: t('accountNamePh') });
+	var limit = h('input', { type: 'number', min: '0', step: '1', 'class': 'ltr', value: !isNew && u.limit ? Math.round(u.limit / 1e9) : '', placeholder: t('noLimit') });
+	var fields = [h('label', {}, [t('accountName'), name]), h('label', {}, [t('limitGB'), limit])];
+	var reset, newLink;
+	if (!isNew) {
+		reset = h('input', { type: 'checkbox', 'class': 'fgz-switch' });
+		newLink = h('input', { type: 'checkbox', 'class': 'fgz-switch' });
+		fields.push(h('label', { 'class': 'fgz-check' }, [reset, t('resetUsage')]));
+		fields.push(h('label', { 'class': 'fgz-check' }, [newLink, t('newLink')]));
+	}
+	dialog(isNew ? t('addAccount') : u.name, isNew ? t('addAccountHint') : null, fields, t('save'), function() {
+		var lim = Math.round((parseFloat(limit.value) || 0) * 1e9);
+		if (isNew)
+			return api('POST', '/api/sharing/users', { name: name.value, limit: lim }).then(function(r) {
+				S.sharing = r; renderPanel();
+				var made = r.users.filter(function(x) { return x.name === name.value.trim(); })[0];
+				if (made) setTimeout(function() { accountLink(made); }, 50);
+			});
+		return api('PUT', '/api/sharing/users/' + u.id, { name: name.value, limit: lim, reset_usage: reset.checked, new_link: newLink.checked })
+			.then(function(r) { S.sharing = r; renderPanel(); if (newLink.checked) toast(t('newLinkDone')); });
+	});
+}
+
+// The account's link and QR, plus a ready message with how to use it.
+function accountLink(u) {
+	api('GET', '/api/sharing/users/' + u.id + '/link').then(function(r) {
+		linkDialog(r.name, r, t('howToUse'));
+	}).catch(function(e) { toast(e.message); });
 }
 
 function warpLine() {
@@ -1200,6 +1585,8 @@ function streamTraffic() {
 		if (S.tab === 'network') drawTraffic();
 		var el = document.getElementById('fgz-speed');
 		if (el) el.replaceChildren.apply(el, speedKids());
+		var live = document.getElementById('fgz-live');
+		if (live) live.replaceChildren.apply(live, liveKids());
 		var up = document.getElementById('fgz-uptime');
 		if (up && S.status) up.textContent = duration(Date.now() / 1000 - S.status.since);
 	};
@@ -1214,6 +1601,8 @@ function tick() {
 		api('GET', '/api/warp').then(function(r) { S.warp = r; var el = document.getElementById('fgz-warp'); if (el) el.replaceChildren.apply(el, warpLine()); }).catch(function() {});
 	if (S.tab === 'network')
 		api('GET', '/api/devices').then(function(r) { S.devices = r; drawMap(); }).catch(function() {});
+	if (S.tab === 'share' && !document.querySelector('.fgz-dialog[open], .fgz input:focus'))
+		api('GET', '/api/sharing').then(function(r) { S.sharing = r; renderPanel(); }).catch(function() {});
 	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))
 		api('GET', '/api/devices').then(function(r) { S.devices = r; renderPanel(); }).catch(function() {});
 }
@@ -1223,13 +1612,17 @@ return view.extend({
 		document.head.appendChild(h('link', { rel: 'stylesheet', href: RES + '/app.css?v=' + VERSION }));
 		return Promise.all([
 			api('GET', '/api/settings').catch(function() { return null; }),
-			api('GET', '/api/status').catch(function() { return null; })
+			api('GET', '/api/status').catch(function() { return null; }),
+			api('GET', '/api/subs').catch(function() { return []; }),
+			api('GET', '/api/nodes').catch(function() { return []; })
 		]);
 	},
 
 	render: function(data) {
 		S.settings = data[0];
 		S.status = data[1];
+		S.subs = data[2] || [];
+		S.nodes = data[3] || [];
 		S.offline = !data[1];
 		lang = (S.settings && S.settings.language) || (/^fa/.test(L.env.lang || navigator.language) ? 'fa' : 'en');
 		root = h('div', { 'class': 'fgz' });

@@ -162,6 +162,9 @@ func dataFiles(bin, version string) []file {
 		data = append(data, file{"./www/luci-static/resources/foxgozar/" + filepath.Base(r), 0o644, b})
 	}
 	data = append(data, file{"./usr/share/foxgozar/NOTICE", 0o644, readText("files/NOTICE")})
+	// A firmware upgrade keeps only what keep.d lists: without this the
+	// user's servers and settings are gone after sysupgrade.
+	data = append(data, file{"./lib/upgrade/keep.d/foxgozar", 0o644, []byte("/etc/foxgozar/\n")})
 	// /cgi-bin/foxgozar: the web UI reaches the API through LuCI's own server.
 	data = append(data, file{"./www/cgi-bin/foxgozar", 0o755, readText("files/cgi-api")})
 	return data

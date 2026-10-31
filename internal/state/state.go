@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"foxgozar/internal/warp"
 	"os"
 	"path/filepath"
@@ -53,13 +54,16 @@ type Subscription struct {
 
 // ShuntRule sends matching traffic somewhere other than the default.
 type ShuntRule struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Enabled bool     `json:"enabled"`
-	Domains []string `json:"domains,omitempty"` // suffix match
-	IPs     []string `json:"ips,omitempty"`     // CIDR
-	RuleSet []string `json:"rule_set,omitempty"`
-	Target  string   `json:"target"` // "direct", "block", "proxy" or a node ID
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Enabled  bool     `json:"enabled"`
+	Domains  []string `json:"domains,omitempty"`  // suffix match
+	Keywords []string `json:"keywords,omitempty"` // the domain contains it
+	IPs      []string `json:"ips,omitempty"`      // CIDR
+	RuleSet  []string `json:"rule_set,omitempty"`
+	// Links to rule-sets or plain lists, downloaded and kept up to date.
+	URLs   []string `json:"urls,omitempty"`
+	Target string   `json:"target"` // "direct", "block", "proxy" or a node ID
 }
 
 // Device is a LAN device with its own policy, found by MAC address.
@@ -70,6 +74,53 @@ type Device struct {
 	// "node" (through Node only) or "block" (no internet).
 	Policy string `json:"policy"`
 	Node   string `json:"node,omitempty"`
+	// Hours with no internet, every day, whatever the policy.
+	Schedule *Schedule `json:"schedule,omitempty"`
+}
+
+// Schedule is a daily window, "HH:MM" to "HH:MM" in the user's time; it may
+// cross midnight ("22:00" to "07:00"). The router's clock is usually UTC, so
+// the user's offset from UTC (minutes, from the browser when it was saved)
+// is kept with it.
+type Schedule struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	TZ   int    `json:"tz"`
+}
+
+func clockMinutes(s string) (int, bool) {
+	var h, m int
+	if n, err := fmt.Sscanf(s, "%d:%d", &h, &m); n != 2 || err != nil || h < 0 || h > 23 || m < 0 || m > 59 {
+		return 0, false
+	}
+	return h*60 + m, true
+}
+
+// Valid reports whether both times parse and differ.
+func (sc Schedule) Valid() bool {
+	f, ok1 := clockMinutes(sc.From)
+	t, ok2 := clockMinutes(sc.To)
+	return ok1 && ok2 && f != t && sc.TZ >= -14*60 && sc.TZ <= 14*60
+}
+
+// Active reports whether now falls inside the window.
+func (sc Schedule) Active(now time.Time) bool {
+	if !sc.Valid() {
+		return false
+	}
+	f, _ := clockMinutes(sc.From)
+	t, _ := clockMinutes(sc.To)
+	local := now.UTC().Add(time.Duration(sc.TZ) * time.Minute)
+	m := local.Hour()*60 + local.Minute()
+	if f < t {
+		return m >= f && m < t
+	}
+	return m >= f || m < t // across midnight
+}
+
+// Blocked reports whether the device has no internet at this moment.
+func (d Device) Blocked(now time.Time) bool {
+	return d.Policy == "block" || (d.Schedule != nil && d.Schedule.Active(now))
 }
 
 type Settings struct {
@@ -133,6 +184,49 @@ type State struct {
 	Rules    []ShuntRule    `json:"rules"`
 	Devices  []Device       `json:"devices"`
 	Warp     *Warp          `json:"warp,omitempty"`
+	Share    *Share         `json:"share,omitempty"`
+}
+
+// Share is a server on the router that people elsewhere connect to, so
+// they use this router's internet: for a shutdown, when the router has a
+// second way out (Starlink) and others reach it over the domestic network.
+// VLESS with Reality: no certificate to get, and it looks like a visit to
+// SNI. The server key is shared; each person has an account of their own
+// (a UUID), so they can be told apart, counted, paused or removed.
+type Share struct {
+	Enabled    bool        `json:"enabled"`
+	Port       int         `json:"port"`
+	SNI        string      `json:"sni"`
+	PrivateKey string      `json:"private_key"`
+	PublicKey  string      `json:"public_key"`
+	ShortID    string      `json:"short_id"`
+	Users      []ShareUser `json:"users"`
+	// Single account of 6.15.0, before accounts; moved into Users.
+	UUID string `json:"uuid,omitempty"`
+}
+
+// ShareUser is one person's account on the sharing server.
+type ShareUser struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	UUID    string `json:"uuid"`
+	Enabled bool   `json:"enabled"`
+	Created int64  `json:"created"`
+	// Traffic through the router, saved now and then; and when last seen.
+	Up       int64 `json:"up"`
+	Down     int64 `json:"down"`
+	LastSeen int64 `json:"last_seen,omitempty"`
+	// Optional data limit in bytes: the account pauses itself at it. 0 = none.
+	Limit int64 `json:"limit,omitempty"`
+}
+
+func (sh *Share) UserByID(id string) *ShareUser {
+	for i := range sh.Users {
+		if sh.Users[i].ID == id {
+			return &sh.Users[i]
+		}
+	}
+	return nil
 }
 
 func Defaults() Settings {
@@ -150,7 +244,7 @@ func Defaults() Settings {
 		ProxyRouter:   true,
 		IranDirect:    true,
 		RemoteDNS:     "https://1.1.1.1/dns-query",
-		DirectDNS:     "udp://8.8.8.8",
+		DirectDNS:     "isp", // the provider’s DNS: Iranian sites get Iranian addresses
 		DefaultPolicy: "proxy",
 		KeepWarm:      true,
 		LogLevel:      "warn",
@@ -167,12 +261,31 @@ type Store struct {
 	subs []chan struct{}
 }
 
+// CurrentVersion is the state file format; migrate brings older files up.
+const CurrentVersion = 2
+
+func migrate(s *State) {
+	if s.Version < 2 {
+		// Version 2: the direct DNS default became the provider's own. A
+		// file still on the old default never chose 8.8.8.8 itself.
+		if s.Settings.DirectDNS == "udp://8.8.8.8" {
+			s.Settings.DirectDNS = "isp"
+		}
+	}
+	if sh := s.Share; sh != nil && sh.UUID != "" {
+		// 6.15.0 had one account for everyone: it becomes the first one.
+		sh.Users = append(sh.Users, ShareUser{ID: "u" + RandomHex(4), Name: "1", UUID: sh.UUID, Enabled: true, Created: time.Now().Unix()})
+		sh.UUID = ""
+	}
+	s.Version = CurrentVersion
+}
+
 func Open(path string) (*Store, error) {
 	st := &Store{path: path}
 	b, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		st.s = State{Version: 1, Settings: Defaults()}
+		st.s = State{Version: CurrentVersion, Settings: Defaults()}
 	case err != nil:
 		return nil, err
 	default:
@@ -181,9 +294,10 @@ func Open(path string) (*Store, error) {
 			// Never lose a user's nodes to one bad write: keep the broken
 			// file aside and start clean.
 			_ = os.Rename(path, path+".broken-"+time.Now().Format("20060102-150405"))
-			st.s = State{Version: 1, Settings: Defaults()}
+			st.s = State{Version: CurrentVersion, Settings: Defaults()}
 		}
 	}
+	migrate(&st.s)
 	if st.s.Token == "" {
 		st.s.Token = RandomHex(16)
 	}

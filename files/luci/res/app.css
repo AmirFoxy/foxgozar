@@ -69,6 +69,7 @@
 .fgz[lang="fa"] { line-height: 1.8; } /* Persian needs the extra room */
 
 .fgz[data-theme="dark"] {
+	color-scheme: dark; /* native controls (time picker icon) follow the theme */
 	--paper: #141630;    /* oklch(0.215 0.050 278): night indigo, not black */
 	--surface: #1e213e;  /* oklch(0.260 0.055 278) */
 	--sunken: #0e1026;   /* oklch(0.185 0.045 278) */
@@ -155,7 +156,7 @@
 .fgz-hero {
 	--dial-x: 14%;
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-columns: auto minmax(0, 1fr) auto;
 	gap: 8px 32px;
 	align-items: center;
 	background: var(--surface);
@@ -234,6 +235,62 @@
 .fgz-power[aria-busy="true"] { opacity: 0.65; cursor: progress; }
 
 .fgz-info { min-width: 0; }
+
+/* status pill above the title: a dot, the state, the version */
+.fgz-pill {
+	display: inline-flex; align-items: center; gap: 7px;
+	font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+	color: var(--ink-2); margin-block-end: 6px;
+}
+.fgz-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.fgz[data-phase="connected"] .fgz-pill i { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+.fgz[data-phase="starting"] .fgz-pill i, .fgz[data-phase="installing"] .fgz-pill i { background: var(--fox); }
+.fgz[data-phase="failed"] .fgz-pill i { background: var(--bad); }
+/* a server name as the title: smaller than a status word, never cut */
+.fgz-state h2.srv { font-size: 30px; overflow-wrap: anywhere; }
+.fgz[dir="rtl"] .fgz-state h2.srv { text-align: right; }
+.fgz-pill .ver { font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+
+/* quick settings: segmented buttons beside the info, split by a hairline */
+.fgz-quick {
+	display: grid; gap: 10px; align-content: center;
+	padding-inline-start: 28px; border-inline-start: 1px solid var(--line);
+}
+.fgz-quick-title { color: var(--ink-3); font-size: 12px; font-weight: 700; }
+.fgz-q { display: grid; grid-template-columns: 7.5em auto; gap: 12px; align-items: center; font-size: 14px; color: var(--ink-2); }
+.fgz-seg {
+	display: inline-flex; padding: 3px; gap: 2px;
+	background: var(--sunken); border: 1px solid var(--line); border-radius: 999px;
+}
+.fgz-seg button {
+	border: 0; background: none; color: var(--ink-2); cursor: pointer;
+	padding: 5px 14px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.fgz-seg button:hover { color: var(--ink); }
+.fgz-seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
+
+/* status cards: one big figure each, small details under it */
+.fgz-cards {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 14px; margin-block: 14px 0;
+}
+.fgz-card {
+	background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l);
+	padding: 16px 18px; display: grid; gap: 8px; align-content: start; min-width: 0;
+}
+.fgz-card .lbl { color: var(--fox-text); font-size: 12px; font-weight: 700; }
+.fgz-card .big { font-size: 28px; font-weight: 800; line-height: 1.15; color: var(--ink); }
+.fgz-card .big.name { font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-card dl { margin: 0; display: grid; gap: 3px; font-size: 13px; }
+.fgz-card dl > div { display: flex; justify-content: space-between; gap: 10px; }
+.fgz-card dt { color: var(--ink-3); }
+.fgz-card dd { margin: 0; color: var(--ink-2); }
+.fgz-flow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fgz-flow > div { display: grid; gap: 4px; min-width: 0; }
+.fgz-flow small { color: var(--ink-3); font-size: 12px; }
+.fgz-flow b { display: block; font-size: 17px; font-weight: 700; white-space: nowrap; }
+.fgz-card .dn { color: var(--ok); }
+.fgz-card .up { color: var(--fox-text); }
 .fgz-state h2 {
 	margin: 0;
 	font-size: 34px;
@@ -321,6 +378,7 @@
 	color: var(--ink);
 	font-size: 15px;
 }
+.fgz-alert.warn { background: var(--fox-soft); }
 
 /* ------------------------------------------------------------ tabs */
 .fgz-tabs {
@@ -445,13 +503,16 @@
 	transition: border-color 0.15s, background-color 0.15s;
 }
 .fgz-btn:hover { border-color: var(--ink-3); }
+/* links and file pickers that look like buttons */
+a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .fgz-btn.primary { background: var(--fox); border-color: var(--fox); color: var(--fox-ink); }
 .fgz-btn.primary:hover { background: color-mix(in srgb, var(--fox) 88%, var(--ink)); }
 .fgz-btn.danger { color: var(--bad); }
 .fgz-btn[aria-busy="true"] { opacity: 0.6; cursor: progress; }
 
-.fgz input[type="text"], .fgz input[type="number"], .fgz input[type="url"], .fgz select, .fgz textarea {
+.fgz input[type="text"], .fgz input[type="number"], .fgz input[type="url"], .fgz input[type="time"], .fgz select, .fgz textarea {
 	width: 100%;
+	color: var(--ink);
 	background: var(--paper);
 	border: 1px solid var(--line);
 	border-radius: var(--r-s);
@@ -620,6 +681,41 @@
 .fgz[dir="rtl"] .fgz-dev .name b[dir="auto"], .fgz[dir="rtl"] .fgz-dev .name small[dir="ltr"] { text-align: right; }
 .fgz[dir="ltr"] .fgz-dev .name b[dir="auto"], .fgz[dir="ltr"] .fgz-row .name b[dir="auto"] { text-align: left; }
 .fgz-dev[data-policy="block"] .name b { color: var(--bad); }
+.fgz-dev .name small.paused { color: var(--bad); }
+
+/* sharing accounts */
+.fgz-acct {
+	display: grid;
+	grid-template-columns: 12px minmax(0, 1fr) auto;
+	gap: 14px;
+	align-items: center;
+	padding: 12px 18px;
+	border-block-end: 1px solid var(--line);
+}
+.fgz-acct:last-child { border-block-end: 0; }
+.fgz-acct .state { width: 10px; height: 10px; border-radius: 50%; background: var(--line); justify-self: center; }
+.fgz-acct .state[data-on="1"] { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+.fgz-acct .name { min-width: 0; display: grid; gap: 4px; }
+.fgz-acct .name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-acct .name small.paused { color: var(--bad); font-size: 13px; }
+.fgz-acct[data-on="0"] .name b { color: var(--ink-3); }
+.fgz-acct .acts { display: flex; gap: 6px; align-items: center; }
+.fgz-icon.armed { color: var(--bad); background: var(--bad-soft); }
+.fgz-acct .fgz-sub-meta span { white-space: nowrap; }
+.fgz[dir="rtl"] .fgz-acct .name b[dir="auto"] { text-align: right; }
+.fgz .fgz-help { color: var(--ink-3); }
+@media (max-width: 720px) {
+	.fgz-acct { grid-template-columns: 12px minmax(0, 1fr); padding-inline: 12px; }
+	.fgz-acct .acts { grid-column: 2; justify-content: flex-end; }
+}
+.fgz-guide { white-space: pre-line; font-size: 14px !important; background: var(--sunken); border-radius: var(--r-s); padding: 10px 12px !important; }
+.fgz-dev .acts { display: flex; gap: 2px; }
+.fgz-icon[data-on="1"] { color: var(--fox); }
+.fgz-help { margin: 0; padding: 0 18px 12px; color: var(--ink-3); font-size: 13px; font-weight: 400; }
+.fgz-help code { display: inline-block; unicode-bidi: isolate; white-space: nowrap; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+.fgz-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fgz-two label { display: grid; gap: 6px; }
+.fgz-check { display: flex; align-items: center; gap: 10px; }
 .fgz-dev[data-policy="direct"] .name b { color: var(--ink-2); }
 
 /* sites each server opens, and sharing */
@@ -640,7 +736,22 @@
 .fgz-dialog textarea { min-height: 76px; font-size: 13px; }
 
 /* ------------------------------------------------------------ small screens */
+/* Too narrow for three columns: quick settings go under, across the hero. */
+@media (max-width: 1100px) {
+	.fgz-hero { grid-template-columns: auto minmax(0, 1fr); }
+	.fgz-quick {
+		grid-column: 1 / -1; padding: 14px 0 0; border-inline-start: 0; border-block-start: 1px solid var(--line);
+		display: flex; flex-wrap: wrap; gap: 10px 32px; text-align: start; width: 100%;
+	}
+	.fgz-quick-title { flex-basis: 100%; }
+	.fgz-q { grid-template-columns: auto auto; }
+}
 @media (max-width: 720px) {
+	.fgz-q { flex-basis: 100%; grid-template-columns: 1fr auto; }
+	.fgz-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+	.fgz-card { padding: 12px 14px; }
+	.fgz-card .big { font-size: 22px; }
+	.fgz-flow { grid-template-columns: 1fr; }
 	.fgz { padding: 14px; border-radius: 0; font-size: 15px; }
 	.fgz-hero { grid-template-columns: 1fr; padding: 20px 18px; justify-items: center; text-align: center; --dial-x: 50%; }
 	.fgz[dir="rtl"] .fgz-hero { --dial-x: 50%; }

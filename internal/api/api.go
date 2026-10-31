@@ -91,6 +91,14 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/core/{kind}/update", s.coreUpdate)
 	h("POST /api/rulesets/update", s.rulesetUpdate)
 	h("GET /api/config", s.config)
+	h("GET /api/sharing", s.shareServer)
+	h("PUT /api/sharing", s.putShareServer)
+	h("POST /api/sharing/users", s.addShareUser)
+	h("PUT /api/sharing/users/{id}", s.editShareUser)
+	h("DELETE /api/sharing/users/{id}", s.deleteShareUser)
+	h("GET /api/sharing/users/{id}/link", s.shareUserLink)
+	h("GET /api/backup", s.backup)
+	h("POST /api/restore", s.restore)
 
 	return s.cors(s.auth(m))
 }
@@ -607,9 +615,20 @@ func (s *Server) putRules(w http.ResponseWriter, r *http.Request) (any, error) {
 		if rules[i].ID == "" {
 			rules[i].ID = "r" + state.RandomHex(4)
 		}
+		for _, u := range rules[i].URLs {
+			if !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+				return nil, fmt.Errorf("%q: a list link starts with https://", u)
+			}
+		}
 	}
 	if err := s.App.Store.Update(func(st *state.State) error { st.Rules = rules; return nil }); err != nil {
 		return nil, err
+	}
+	// New links are fetched now, so the rule works as soon as it is saved.
+	if _, err := s.App.EnsureRuleURLs(r.Context(), false); err != nil {
+		s.App.Log.Add("foxgozar", "your rule lists: "+err.Error())
+		_ = s.App.Apply(context.Background())
+		return nil, fmt.Errorf("saved, but a list could not be downloaded: %w", err)
 	}
 	return rules, s.App.Apply(context.Background())
 }
@@ -691,6 +710,86 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) (any, error) {
 	return s.App.ConfigJSON(), nil
 }
 
+// Backup is everything the user set up, in one file: settings, servers,
+// subscriptions, rules, devices and the WARP account. Not the API token:
+// that belongs to this router.
+type Backup struct {
+	App      string               `json:"app"`
+	Exported int64                `json:"exported"`
+	Settings state.Settings       `json:"settings"`
+	Nodes    []state.Node         `json:"nodes"`
+	Subs     []state.Subscription `json:"subscriptions"`
+	Rules    []state.ShuntRule    `json:"rules"`
+	Devices  []state.Device       `json:"devices"`
+	Warp     *state.Warp          `json:"warp,omitempty"`
+	Share    *state.Share         `json:"share,omitempty"`
+}
+
+const backupApp = "foxgozar"
+
+func (s *Server) backup(w http.ResponseWriter, r *http.Request) (any, error) {
+	st := s.App.Store.View()
+	b := Backup{App: backupApp, Exported: time.Now().Unix(), Settings: st.Settings, Nodes: st.Nodes,
+		Subs: st.Subs, Rules: st.Rules, Devices: st.Devices, Warp: st.Warp, Share: st.Share}
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="foxgozar-backup-%s.json"`, time.Now().Format("2006-01-02")))
+	return b, nil
+}
+
+// restore replaces everything with a backup. Whether the tunnel is on stays
+// as it is now; the rest is the backup's.
+func (s *Server) restore(w http.ResponseWriter, r *http.Request) (any, error) {
+	var b Backup
+	if err := decode(r, &b); err != nil {
+		return nil, err
+	}
+	if b.App != backupApp {
+		return nil, httpErr{400, "not a FoxGozar backup file"}
+	}
+	// Fields a backup from an older version lacks take today's defaults.
+	merged := state.Defaults()
+	raw, _ := json.Marshal(b.Settings)
+	_ = json.Unmarshal(raw, &merged)
+	if err := validateSettings(merged); err != nil {
+		return nil, fmt.Errorf("backup settings: %w", err)
+	}
+	for _, d := range b.Devices {
+		if !macRe.MatchString(d.MAC) {
+			return nil, fmt.Errorf("backup has a bad device address %q", d.MAC)
+		}
+	}
+	err := s.App.Store.Update(func(st *state.State) error {
+		merged.Enabled = st.Settings.Enabled
+		st.Settings = merged
+		st.Nodes, st.Subs, st.Rules, st.Devices, st.Warp, st.Share = b.Nodes, b.Subs, b.Rules, b.Devices, b.Warp, b.Share
+		if st.Nodes == nil {
+			st.Nodes = []state.Node{}
+		}
+		if st.Subs == nil {
+			st.Subs = []state.Subscription{}
+		}
+		if st.Rules == nil {
+			st.Rules = []state.ShuntRule{}
+		}
+		if st.Devices == nil {
+			st.Devices = []state.Device{}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.App.Log.Add("foxgozar", fmt.Sprintf("restored a backup: %d servers, %d subscriptions, %d rules, %d devices",
+		len(b.Nodes), len(b.Subs), len(b.Rules), len(b.Devices)))
+	if err := s.App.EnsureRuleSets(context.Background()); err != nil {
+		s.App.Log.Add("foxgozar", "rule-sets: "+err.Error())
+	}
+	if err := s.App.SyncShare(); err != nil {
+		s.App.Log.Add("foxgozar", "sharing: "+err.Error())
+	}
+	return map[string]int{"nodes": len(b.Nodes), "subscriptions": len(b.Subs), "rules": len(b.Rules), "devices": len(b.Devices)},
+		s.App.Apply(context.Background())
+}
+
 func subByID(s *Server, id string) *state.Subscription {
 	v := s.App.Store.View()
 	return v.SubByID(id)
@@ -711,6 +810,8 @@ func (s *Server) setDevice(w http.ResponseWriter, r *http.Request) (any, error) 
 		Name   *string `json:"name"`
 		Policy *string `json:"policy"`
 		Node   *string `json:"node"`
+		// absent: unchanged; null: removed
+		Schedule json.RawMessage `json:"schedule"`
 	}
 	if err := decode(r, &req); err != nil {
 		return nil, err
@@ -728,6 +829,17 @@ func (s *Server) setDevice(w http.ResponseWriter, r *http.Request) (any, error) 
 	}
 	if req.Node != nil {
 		d.Node = *req.Node
+	}
+	switch {
+	case len(req.Schedule) == 0:
+	case string(req.Schedule) == "null":
+		d.Schedule = nil
+	default:
+		var sc state.Schedule
+		if err := json.Unmarshal(req.Schedule, &sc); err != nil || !sc.Valid() {
+			return nil, errors.New("schedule: give two different times as HH:MM")
+		}
+		d.Schedule = &sc
 	}
 	switch d.Policy {
 	case "proxy", "direct", "block":
@@ -773,6 +885,73 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]string{"link": n.Link}, nil // the link alone still helps
 	}
 	return map[string]string{"link": n.Link, "svg": svg}, nil
+}
+
+func (s *Server) shareServer(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.ShareInfo(), nil
+}
+
+func (s *Server) addShareUser(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Name  string `json:"name"`
+		Limit int64  `json:"limit"` // bytes, 0 = none
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if _, err := s.App.AddShareUser(req.Name, req.Limit); err != nil {
+		return nil, err
+	}
+	return s.App.ShareInfo(), nil
+}
+
+func (s *Server) editShareUser(w http.ResponseWriter, r *http.Request) (any, error) {
+	var p app.ShareUserPatch
+	if err := decode(r, &p); err != nil {
+		return nil, err
+	}
+	if err := s.App.UpdateShareUser(r.PathValue("id"), p); err != nil {
+		return nil, err
+	}
+	return s.App.ShareInfo(), nil
+}
+
+func (s *Server) deleteShareUser(w http.ResponseWriter, r *http.Request) (any, error) {
+	if err := s.App.DeleteShareUser(r.PathValue("id")); err != nil {
+		return nil, err
+	}
+	return s.App.ShareInfo(), nil
+}
+
+// shareUserLink is one account's link and its QR code.
+func (s *Server) shareUserLink(w http.ResponseWriter, r *http.Request) (any, error) {
+	for _, u := range s.App.ShareInfo().Users {
+		if u.ID != r.PathValue("id") {
+			continue
+		}
+		if u.Link == "" {
+			return nil, errors.New("no link yet: turn sharing on, and the router needs an internet address")
+		}
+		svg, _ := qrsvg.Encode(u.Link)
+		return map[string]string{"link": u.Link, "svg": svg, "name": u.Name}, nil
+	}
+	return nil, httpErr{404, "no such account"}
+}
+
+func (s *Server) putShareServer(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Enabled bool   `json:"enabled"`
+		Port    int    `json:"port"`
+		SNI     string `json:"sni"`
+		NewKey  bool   `json:"new_key"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if _, err := s.App.SetShare(r.Context(), req.Enabled, req.Port, req.SNI, req.NewKey); err != nil {
+		return nil, err
+	}
+	return s.shareServer(w, r)
 }
 
 func (s *Server) gamesLast(w http.ResponseWriter, r *http.Request) (any, error) {

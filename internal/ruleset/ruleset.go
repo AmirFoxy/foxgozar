@@ -6,8 +6,11 @@ package ruleset
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -117,4 +120,126 @@ func split(all []string) (v4, v6 []string) {
 		}
 	}
 	return
+}
+
+// URLTag is the rule-set tag a user's rule-set link is kept under.
+func URLTag(url string) string {
+	h := sha256.Sum256([]byte(strings.TrimSpace(url)))
+	return "url-" + hex.EncodeToString(h[:5])
+}
+
+// UpdateURLs downloads rule-sets from the user's own links. A link may give
+// a compiled sing-box rule-set (.srs), a source rule-set (JSON), or a plain
+// list: one domain or IP range per line, Clash style ("DOMAIN-SUFFIX,x.com")
+// accepted too. Anything but .srs is compiled with sing-box. Only the links
+// whose file is missing are fetched, unless all is set. Like Update, a
+// failed download leaves the old file in place.
+func UpdateURLs(ctx context.Context, f *core.Fetcher, singBox, dir string, urls []string, all bool) (updated []string, err error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	var errs []string
+	for _, u := range urls {
+		tag := URLTag(u)
+		path := filepath.Join(dir, tag+".srs")
+		if !all && Age(dir, tag) < 1<<61 {
+			continue
+		}
+		b, e := f.Get(ctx, u, 32<<20)
+		if e == nil {
+			b, e = toSRS(singBox, b)
+		}
+		if e != nil {
+			errs = append(errs, u+": "+e.Error())
+			continue
+		}
+		if old, e := os.ReadFile(path); e == nil && bytes.Equal(old, b) {
+			now := time.Now()
+			_ = os.Chtimes(path, now, now)
+			continue
+		}
+		if e := state.WriteFileAtomic(path, b, 0o644); e != nil {
+			errs = append(errs, u+": "+e.Error())
+			continue
+		}
+		updated = append(updated, tag)
+	}
+	if len(errs) > 0 {
+		err = fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return updated, err
+}
+
+func toSRS(singBox string, b []byte) ([]byte, error) {
+	if len(b) >= 3 && string(b[:3]) == "SRS" {
+		return b, nil
+	}
+	src := b
+	if t := bytes.TrimSpace(b); len(t) == 0 || t[0] != '{' {
+		var err error
+		if src, err = ListSource(string(b)); err != nil {
+			return nil, err
+		}
+	}
+	dir, err := os.MkdirTemp("", "fgz-rs")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	in, out := filepath.Join(dir, "in.json"), filepath.Join(dir, "out.srs")
+	if err := os.WriteFile(in, src, 0o644); err != nil {
+		return nil, err
+	}
+	if o, e := exec.Command(singBox, "rule-set", "compile", "-o", out, in).CombinedOutput(); e != nil {
+		return nil, fmt.Errorf("not a rule-set or a list: %s", strings.TrimSpace(string(o)))
+	}
+	return os.ReadFile(out)
+}
+
+// ListSource turns a plain list into a sing-box source rule-set.
+func ListSource(text string) ([]byte, error) {
+	var suffix, full, keyword, cidr []string
+	for _, line := range strings.Split(text, "\n") {
+		if i := strings.Index(line, " #"); i >= 0 { // trailing comment
+			line = line[:i]
+		}
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+		kind, v := "", line
+		if i := strings.Index(line, ","); i > 0 {
+			kind, v = strings.ToUpper(line[:i]), line[i+1:]
+			if j := strings.Index(v, ","); j >= 0 { // "IP-CIDR,1.2.3.0/24,no-resolve"
+				v = v[:j]
+			}
+		}
+		v = strings.TrimPrefix(strings.TrimSpace(v), "+.")
+		switch {
+		case kind == "DOMAIN":
+			full = append(full, v)
+		case kind == "DOMAIN-KEYWORD":
+			keyword = append(keyword, v)
+		case kind == "IP-CIDR" || kind == "IP-CIDR6":
+			cidr = append(cidr, v)
+		case kind == "DOMAIN-SUFFIX" || kind == "":
+			if _, _, e := net.ParseCIDR(v); e == nil {
+				cidr = append(cidr, v)
+			} else if ip := net.ParseIP(v); ip != nil {
+				cidr = append(cidr, v)
+			} else if strings.Contains(v, ".") && !strings.ContainsAny(v, " /:") {
+				suffix = append(suffix, v)
+			}
+		}
+	}
+	rule := map[string]any{}
+	for k, v := range map[string][]string{"domain_suffix": suffix, "domain": full, "domain_keyword": keyword, "ip_cidr": cidr} {
+		if len(v) > 0 {
+			rule[k] = v
+		}
+	}
+	if len(rule) == 0 {
+		return nil, fmt.Errorf("no domains or IP ranges found")
+	}
+	return json.Marshal(map[string]any{"version": 2, "rules": []any{rule}})
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"foxgozar/internal/link"
+	"foxgozar/internal/ruleset"
 	"foxgozar/internal/state"
 	"foxgozar/internal/warp"
 )
@@ -71,6 +72,48 @@ func TestBuild(t *testing.T) {
 	b2, _ := Build(st, Env{RuleDir: dir, CacheFile: "cache.db", Secret: "s", TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090, ProbePort: 9100})
 	if string(b) != string(b2) {
 		t.Error("selection leaked into the config")
+	}
+}
+
+func TestUserRuleKinds(t *testing.T) {
+	st := sampleState(t)
+	dir := t.TempDir()
+	have, missing := "https://x.test/have.txt", "https://x.test/missing.txt"
+	_ = os.WriteFile(dir+"/"+ruleset.URLTag(have)+".srs", []byte("SRS\x00"), 0o644)
+	st.Rules = []state.ShuntRule{{ID: "k", Enabled: true, Keywords: []string{"openai"}, URLs: []string{have, missing}, Target: "direct"}}
+	b, err := Build(st, Env{RuleDir: dir, TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		DNS   struct{ Rules []map[string]any }
+		Route struct {
+			Rules   []map[string]any
+			RuleSet []map[string]any `json:"rule_set"`
+		}
+	}
+	_ = json.Unmarshal(b, &cfg)
+	var rule map[string]any
+	for _, r := range cfg.Route.Rules {
+		if _, ok := r["domain_keyword"]; ok {
+			rule = r
+		}
+	}
+	if rule == nil || rule["outbound"] != TagDirect {
+		t.Fatalf("keyword rule missing: %v", cfg.Route.Rules)
+	}
+	rs, _ := rule["rule_set"].([]any)
+	if len(rs) != 1 || rs[0] != ruleset.URLTag(have) {
+		t.Fatalf("only the downloaded list may be used: %v", rs)
+	}
+	found := false
+	for _, r := range cfg.DNS.Rules {
+		if _, ok := r["domain_keyword"]; ok && r["server"] == "dns-direct" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("direct keyword domains should resolve with the direct DNS")
 	}
 }
 

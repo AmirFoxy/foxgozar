@@ -215,8 +215,8 @@ func (a *App) warpWatch(ctx context.Context) {
 			continue
 		}
 		now := px[gen.TagProxy].Now
-		if now == gen.TagAuto {
-			now = px[gen.TagAuto].Now
+		if gen.IsGroup(now) {
+			now = px[now].Now
 		}
 		c, cancel = context.WithTimeout(ctx, 8*time.Second)
 		d, err := cl.Delay(c, now, st.Settings.TestURL, 6*time.Second)

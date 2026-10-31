@@ -15,19 +15,21 @@ import (
 // DeviceView is one LAN device as the UI shows it: what the router knows
 // about it, its policy, and what it used through the tunnel.
 type DeviceView struct {
-	MAC      string  `json:"mac"`
-	Name     string  `json:"name"`               // the user's name, else the DHCP hostname
-	Hostname string  `json:"hostname,omitempty"` // from DHCP
-	IP       string  `json:"ip,omitempty"`
-	Online   bool    `json:"online"`
-	Saved    bool    `json:"saved"` // has a policy of its own
-	Policy   string  `json:"policy"`
-	Node     string  `json:"node,omitempty"`
-	Up       int64   `json:"up"`   // through the tunnel since the service started
-	Down     int64   `json:"down"` //
-	RateUp   float64 `json:"rate_up"`
-	RateDown float64 `json:"rate_down"`
-	Conns    int     `json:"connections"`
+	MAC      string          `json:"mac"`
+	Name     string          `json:"name"`               // the user's name, else the DHCP hostname
+	Hostname string          `json:"hostname,omitempty"` // from DHCP
+	IP       string          `json:"ip,omitempty"`
+	Online   bool            `json:"online"`
+	Saved    bool            `json:"saved"` // has a policy of its own
+	Policy   string          `json:"policy"`
+	Node     string          `json:"node,omitempty"`
+	Up       int64           `json:"up"`   // through the tunnel since the service started
+	Down     int64           `json:"down"` //
+	RateUp   float64         `json:"rate_up"`
+	RateDown float64         `json:"rate_down"`
+	Conns    int             `json:"connections"`
+	Schedule *state.Schedule `json:"schedule,omitempty"`
+	Paused   bool            `json:"paused,omitempty"` // inside its scheduled hours now
 }
 
 type lease struct{ ip, host string }
@@ -230,6 +232,8 @@ func (a *App) Devices() []DeviceView {
 		v := get(d.MAC)
 		v.Saved, v.Policy, v.Node = true, d.Policy, d.Node
 		v.Name = d.Name
+		v.Schedule = d.Schedule
+		v.Paused = d.Policy != "block" && d.Blocked(time.Now())
 	}
 
 	a.dev.mu.Lock()

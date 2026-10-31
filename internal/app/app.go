@@ -52,14 +52,19 @@ type App struct {
 	busy             map[string]bool
 	baseUp, baseDown int64 // traffic of instances already stopped
 	dev              *devStats
-	onWarp           bool // traffic is on the WARP backup
+	onWarp           bool   // traffic is on the WARP backup
+	blockKey         string // what the blocking table holds now
+	share            *core.Process
+	shareUse         *shareUsage
+	iranKey          string // what the dual-WAN Iran routes hold now
 	services         *ServiceResults
 	games            *GameResults
 }
 
 func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
-		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats()}
+		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats(),
+		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
@@ -114,6 +119,11 @@ func (a *App) Boot(ctx context.Context) {
 	// The kill switch first: between the old rules going and the tunnel
 	// coming up, devices must not go out unprotected.
 	a.syncKillSwitch(st0, false)
+	a.syncBlock(st0)
+	a.syncIranRoutes()
+	if err := a.syncShare(st0); err != nil {
+		a.Log.Add("foxgozar", "sharing: "+err.Error())
+	}
 	// Whatever a previous foxgozar left behind points at a core that is gone.
 	fw.Down()
 	if s.Enabled {
@@ -130,6 +140,7 @@ func (a *App) Boot(ctx context.Context) {
 	}
 	go a.loop(ctx)
 	go a.warpWatch(ctx)
+	go a.shareWatch(ctx)
 }
 
 // Start brings the tunnel up. It is quick when the core and rule-sets are
@@ -165,6 +176,9 @@ func (a *App) Start(ctx context.Context) error {
 			// Not fatal: .ir domains still go direct, the rest waits for later.
 			a.Log.Add("foxgozar", "rule-sets: "+err.Error())
 		}
+	}
+	if _, err := a.EnsureRuleURLs(ctx, false); err != nil {
+		a.Log.Add("foxgozar", "your rule lists: "+err.Error())
 	}
 	a.setPhase(Starting, "")
 	// Nothing is routed yet, so an existing warm core may simply reload.
@@ -251,11 +265,17 @@ func (a *App) Stop() {
 	a.stopLocked(!a.Store.View().Settings.KeepWarm)
 }
 
-// Shutdown is the service stopping: everything goes, the core included.
+// Shutdown is the service stopping: everything goes, the core and the
+// device blocks included (the next start puts the blocks back first).
 func (a *App) Shutdown() {
 	a.op.Lock()
 	defer a.op.Unlock()
 	a.stopLocked(true)
+	_ = fw.Block(fw.Config{})
+	a.shareProcess().Stop()
+	a.mu.Lock()
+	a.blockKey = ""
+	a.mu.Unlock()
 }
 
 func (a *App) stopLocked(full bool) {
@@ -281,6 +301,7 @@ func (a *App) Apply(ctx context.Context) error {
 	a.op.Lock()
 	defer a.op.Unlock()
 	st := a.Store.View()
+	a.syncBlock(st) // blocking holds with the tunnel down as well
 	if !a.running() {
 		return nil
 	}
@@ -318,6 +339,15 @@ func (a *App) applySelection(ctx context.Context, s state.Settings) {
 	target := gen.TagAuto
 	if s.Mode == "manual" && s.Selected != "" {
 		target = s.Selected
+		// The server or subscription group may be gone since (removed, or
+		// a subscription update dropped it): back to automatic.
+		if st := a.Store.View(); st.NodeByID(target) == nil && !subGroupExists(st, target) {
+			target = gen.TagAuto
+			_ = a.Store.Update(func(st *state.State) error {
+				st.Settings.Mode, st.Settings.Selected = "auto", ""
+				return nil
+			})
+		}
 	}
 	c, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -333,6 +363,24 @@ func (a *App) applySelection(ctx context.Context, s state.Settings) {
 	}
 }
 
+// subGroupExists reports whether tag is the "fastest of this subscription"
+// group of a subscription with two servers or more (see gen.Build).
+func subGroupExists(st state.State, tag string) bool {
+	for _, sb := range st.Subs {
+		if gen.SubAutoTag(sb.ID) != tag {
+			continue
+		}
+		n := 0
+		for _, nd := range st.Nodes {
+			if nd.Sub == sb.ID {
+				n++
+			}
+		}
+		return n >= 2
+	}
+	return false
+}
+
 // Select switches node instantly through the core API.
 func (a *App) Select(ctx context.Context, id string) error {
 	err := a.Store.Update(func(s *state.State) error {
@@ -340,7 +388,7 @@ func (a *App) Select(ctx context.Context, id string) error {
 			s.Settings.Mode, s.Settings.Selected = "auto", ""
 			return nil
 		}
-		if s.NodeByID(id) == nil {
+		if s.NodeByID(id) == nil && !subGroupExists(*s, id) {
 			return fmt.Errorf("no such node")
 		}
 		s.Settings.Mode, s.Settings.Selected = "manual", id
@@ -411,7 +459,7 @@ func (a *App) fwConfig(st state.State, sl *slot) fw.Config {
 	c := fw.Config{
 		TProxyPort: sl.tproxy(s), DNSPort: sl.dns(s), LANInterfaces: s.LANInterfaces,
 		ProxyRouter: s.ProxyRouter, IPv6: s.IPv6, CoreMark: gen.RoutingMark,
-		FakeIP: s.FakeIP,
+		FakeIP: s.FakeIP, MixedPort: s.MixedPort,
 	}
 	dev := a.deviceRules(st)
 	c.TunnelMACs, c.DirectMACs, c.BlockMACs, c.DefaultDirect = dev.TunnelMACs, dev.DirectMACs, dev.BlockMACs, dev.DefaultDirect
@@ -424,6 +472,67 @@ func (a *App) fwConfig(st state.State, sl *slot) fw.Config {
 		}
 	}
 	return c
+}
+
+// syncBlock keeps the blocking table in line with the devices' policies and
+// schedules, tunnel or no tunnel. It runs nft only when something changed.
+func (a *App) syncBlock(st state.State) {
+	c := a.deviceRules(st)
+	key := fmt.Sprint(c.BlockMACs, c.LANInterfaces, c.MixedPort)
+	a.mu.Lock()
+	same := a.blockKey == key
+	a.mu.Unlock()
+	if same {
+		return
+	}
+	if err := fw.Block(c); err != nil {
+		a.Log.Add("foxgozar", "blocking devices: "+err.Error())
+		return
+	}
+	a.mu.Lock()
+	a.blockKey = key
+	a.mu.Unlock()
+	// Schedules start and end on their own: say so in the log.
+	now := time.Now()
+	for _, d := range st.Devices {
+		if d.Schedule != nil && d.Policy != "block" {
+			name := d.Name
+			if name == "" {
+				name = d.MAC
+			}
+			if d.Schedule.Active(now) {
+				a.Log.Add("foxgozar", name+": scheduled hours, no internet until "+d.Schedule.To)
+			}
+		}
+	}
+}
+
+func ruleURLs(st state.State) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, r := range st.Rules {
+		for _, u := range r.URLs {
+			if r.Enabled && !seen[u] {
+				seen[u] = true
+				out = append(out, u)
+			}
+		}
+	}
+	return out
+}
+
+// EnsureRuleURLs downloads the rule-sets the user's rules link to: the
+// missing ones, or with all every one (the daily refresh). It needs
+// sing-box on disk to compile lists, so it waits until the core is there.
+func (a *App) EnsureRuleURLs(ctx context.Context, all bool) (updated []string, err error) {
+	urls := ruleURLs(a.Store.View())
+	if len(urls) == 0 {
+		return nil, nil
+	}
+	if _, e := os.Stat(a.SingBoxBin()); e != nil {
+		return nil, nil
+	}
+	return ruleset.UpdateURLs(ctx, a.Fetcher(), a.SingBoxBin(), a.RuleDir(), urls, all)
 }
 
 func (a *App) wantedRuleSets(s state.Settings) []string {
@@ -484,6 +593,11 @@ func (a *App) UpdateRuleSets(ctx context.Context) error {
 	}
 	defer a.release("rules")
 	updated, err := ruleset.Update(ctx, a.Fetcher(), a.RuleDir(), a.wantedRuleSets(a.Store.View().Settings))
+	if mine, e := a.EnsureRuleURLs(ctx, true); e != nil {
+		a.Log.Add("foxgozar", "your rule lists: "+e.Error())
+	} else {
+		updated = append(updated, mine...)
+	}
 	if len(updated) > 0 && a.running() {
 		a.forceNew() // files changed under the same names
 		if e := a.Apply(ctx); e != nil && err == nil {
@@ -676,12 +790,11 @@ func (a *App) Status(ctx context.Context) Status {
 		defer cancel()
 		if px, err := a.Clash().Proxies(c); err == nil {
 			now := px[gen.TagProxy].Now
-			if now == gen.TagAuto {
-				now = px[gen.TagAuto].Now
-			}
 			if now == gen.TagWarp {
-				now = px[gen.TagWarp].Now
 				s.CurrentName, s.Backup = "WARP", true
+			}
+			if gen.IsGroup(now) {
+				now = px[now].Now
 			}
 			s.Current = now
 			s.Delay = px[now].LastDelay()
@@ -710,6 +823,13 @@ func (a *App) loop(ctx context.Context) {
 		}
 		n++
 		st := a.Store.View()
+		a.syncBlock(st)    // schedules begin and end by the clock
+		a.syncIranRoutes() // the domestic line's gateway can change
+		if st.Share != nil && st.Share.Enabled && !a.shareProcess().Running() {
+			if err := a.syncShare(st); err != nil {
+				a.Log.Add("foxgozar", "sharing: "+err.Error())
+			}
+		}
 		// Health: the core answers its API, or it is restarted.
 		if st.Settings.Enabled && a.running() {
 			c, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -828,11 +948,14 @@ func (a *App) EnsureRuleSets(ctx context.Context) error {
 
 // deviceRules is the per-device part of the firewall config.
 func (a *App) deviceRules(st state.State) fw.Config {
-	c := fw.Config{LANInterfaces: st.Settings.LANInterfaces, DefaultDirect: st.Settings.DefaultPolicy == "direct"}
+	c := fw.Config{LANInterfaces: st.Settings.LANInterfaces, DefaultDirect: st.Settings.DefaultPolicy == "direct",
+		MixedPort: st.Settings.MixedPort}
+	now := time.Now()
 	for _, d := range st.Devices {
-		switch d.Policy {
-		case "block":
+		if d.Blocked(now) {
 			c.BlockMACs = append(c.BlockMACs, d.MAC)
+		}
+		switch d.Policy {
 		case "direct":
 			c.DirectMACs = append(c.DirectMACs, d.MAC)
 		case "proxy", "node":

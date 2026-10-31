@@ -23,12 +23,50 @@ func TestKillSwitchSparesDirectDevices(t *testing.T) {
 	}
 }
 
-func TestBlockedDevicesCannotLeaveViaIPv6(t *testing.T) {
-	s := Script(Config{TProxyPort: 7893, DNSPort: 1053, LANInterfaces: []string{"br-lan"}, CoreMark: 0xff,
-		BlockMACs: []string{"aa:bb:cc:dd:ee:ff"}})
-	block := strings.Index(s, "@block_mac")
-	v6 := strings.Index(s, "meta nfproto ipv6 return")
-	if block < 0 || v6 < 0 || block > v6 {
-		t.Fatal("the block rule must come before the IPv6 return")
+func TestIPv6OffRejectsLANIPv6(t *testing.T) {
+	c := Config{TProxyPort: 7893, DNSPort: 1053, LANInterfaces: []string{"br-lan"}, CoreMark: 0xff,
+		DirectMACs: []string{"aa:bb:cc:dd:ee:ff"}}
+	s := Script(c)
+	fwd := strings.Index(s, "chain forward")
+	if fwd < 0 || !strings.Contains(s[fwd:], "reject with icmpx type admin-prohibited") {
+		t.Fatalf("IPv6 off must reject forwarded IPv6:\n%s", s)
+	}
+	// Direct devices are not the tunnel's concern: they keep IPv6.
+	if r, d := strings.Index(s[fwd:], "reject"), strings.Index(s[fwd:], "@direct_mac return"); d < 0 || d > r {
+		t.Fatalf("direct devices must be exempt before the reject:\n%s", s)
+	}
+	c.IPv6 = true
+	if strings.Contains(Script(c), "chain forward") {
+		t.Fatal("IPv6 on: IPv6 goes through the core, nothing to reject")
+	}
+}
+
+func TestBlockTable(t *testing.T) {
+	c := Config{LANInterfaces: []string{"br-lan"}, BlockMACs: []string{"aa:bb:cc:dd:ee:ff"}, MixedPort: 7890}
+	s := BlockScript(c)
+	for _, want := range []string{
+		"priority mangle - 10", // ahead of the tunnel's prerouting chain
+		"ether saddr @mac fib daddr type != { local, broadcast, multicast } drop",
+		"ether saddr @mac tcp dport 7890 reject",
+		"ether saddr @mac udp dport 7890 reject",
+	} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing %q:\n%s", want, s)
+		}
+	}
+	// Every family alike: IPv6 is no way around it.
+	if strings.Contains(s, "nfproto") {
+		t.Fatal("the block must not depend on the address family")
+	}
+	c.MixedPort = 0
+	if strings.Contains(BlockScript(c), "chain input") {
+		t.Fatal("no mixed port, no input chain")
+	}
+	c.BlockMACs = nil
+	if s := BlockScript(c); strings.Contains(s, "chain") || !strings.Contains(s, "delete table inet foxgozar_block") {
+		t.Fatalf("nobody blocked: the table only goes away:\n%s", s)
+	}
+	if strings.Contains(Script(Config{TProxyPort: 1, DNSPort: 2, LANInterfaces: []string{"br-lan"}, BlockMACs: []string{"aa:bb:cc:dd:ee:ff"}}), "aa:bb:cc:dd:ee:ff") {
+		t.Fatal("blocked MACs belong in the block table only")
 	}
 }

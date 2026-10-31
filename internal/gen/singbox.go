@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"foxgozar/internal/ruleset"
 	"foxgozar/internal/state"
 )
 
@@ -35,6 +36,9 @@ type Env struct {
 	// A local SOCKS inbound where the user name picks the server, so a
 	// measurement can go through one chosen server. 0 = none.
 	ProbePort int
+
+	// The internet provider's DNS server, used when DirectDNS is "isp".
+	ISPDNS string
 
 	RuleDir   string // where the .srs files live
 	CacheFile string
@@ -138,15 +142,39 @@ func Build(st state.State, env Env) ([]byte, error) {
 		"tolerance": tolerance, "idle_timeout": "30m",
 		"interrupt_exist_connections": s.InterruptOnSwitch,
 	}
+	// "Fastest of one subscription": a urltest group per subscription with
+	// two servers or more, chosen through the API like a single server.
+	selTags := []any{TagAuto}
+	var subGroups []any
+	for _, sb := range st.Subs {
+		var members []any
+		for _, n := range nodes {
+			if n.Sub == sb.ID {
+				members = append(members, n.ID)
+			}
+		}
+		if len(members) < 2 {
+			continue
+		}
+		g := map[string]any{}
+		for k, v := range auto {
+			g[k] = v
+		}
+		g["tag"], g["outbounds"] = SubAutoTag(sb.ID), members
+		subGroups = append(subGroups, g)
+		selTags = append(selTags, SubAutoTag(sb.ID))
+	}
 	sel := map[string]any{
 		"type": "selector", "tag": TagProxy,
-		"outbounds": append([]any{TagAuto}, tags...),
+		"outbounds": append(selTags, tags...),
 		"default":   TagAuto, // the manual choice is applied through the API, so changing it never changes the config
 		// Switching never cuts what is already open: those connections finish
 		// on the old node, new ones use the new node.
 		"interrupt_exist_connections": false,
 	}
-	outbounds = append(outbounds, auto, sel, map[string]any{"type": "direct", "tag": TagDirect})
+	outbounds = append(outbounds, auto)
+	outbounds = append(outbounds, subGroups...)
+	outbounds = append(outbounds, sel, map[string]any{"type": "direct", "tag": TagDirect})
 	if WarpOn(st) {
 		// The backup: chosen through the API only when every server fails.
 		base := env.XrayBase
@@ -189,7 +217,14 @@ func Build(st state.State, env Env) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("remote DNS: %w", err)
 	}
-	direct, err := dnsServer("dns-direct", s.DirectDNS, "")
+	directSpec := s.DirectDNS
+	if directSpec == DNSISP {
+		directSpec = env.ISPDNS
+		if directSpec == "" {
+			directSpec = "udp://8.8.8.8"
+		}
+	}
+	direct, err := dnsServer("dns-direct", directSpec, "")
 	if err != nil {
 		return nil, fmt.Errorf("direct DNS: %w", err)
 	}
@@ -219,9 +254,17 @@ func Build(st state.State, env Env) ([]byte, error) {
 		}
 	}
 	for _, sr := range st.Rules {
-		if sr.Enabled && sr.Target == "direct" && len(sr.Domains) > 0 {
-			dnsRules = append(dnsRules, map[string]any{"domain_suffix": toAny(sr.Domains), "server": "dns-direct"})
+		if !sr.Enabled || sr.Target != "direct" || len(sr.Domains)+len(sr.Keywords) == 0 {
+			continue
 		}
+		r := map[string]any{"server": "dns-direct"}
+		if len(sr.Domains) > 0 {
+			r["domain_suffix"] = toAny(sr.Domains)
+		}
+		if len(sr.Keywords) > 0 {
+			r["domain_keyword"] = toAny(sr.Keywords)
+		}
+		dnsRules = append(dnsRules, r)
 	}
 	if s.FakeIP {
 		dnsRules = append(dnsRules, map[string]any{"query_type": []any{"A", "AAAA"}, "server": "dns-fake"})
@@ -295,12 +338,21 @@ func Build(st state.State, env Env) ([]byte, error) {
 		if len(sr.Domains) > 0 {
 			r["domain_suffix"] = toAny(sr.Domains)
 		}
+		if len(sr.Keywords) > 0 {
+			r["domain_keyword"] = toAny(sr.Keywords)
+		}
 		if len(sr.IPs) > 0 {
 			r["ip_cidr"] = toAny(sr.IPs)
 		}
 		var rs []any
 		for _, t := range sr.RuleSet {
 			if useRS(t) {
+				rs = append(rs, t)
+			}
+		}
+		// A link counts once its download is on disk.
+		for _, u := range sr.URLs {
+			if t := ruleset.URLTag(u); useRS(t) {
 				rs = append(rs, t)
 			}
 		}
@@ -379,6 +431,20 @@ func Build(st state.State, env Env) ([]byte, error) {
 		cfg["endpoints"] = endpoints
 	}
 	return json.MarshalIndent(cfg, "", "  ")
+}
+
+// DNSISP as DirectDNS means the provider's own DNS: direct (Iranian) sites
+// then get the addresses meant for Iran, local CDN nodes included.
+const DNSISP = "isp"
+
+const subAutoPrefix = "auto-"
+
+// SubAutoTag is the group that picks the fastest server of one subscription.
+func SubAutoTag(subID string) string { return subAutoPrefix + subID }
+
+// IsGroup reports whether tag is a group that picks a server by itself.
+func IsGroup(tag string) bool {
+	return tag == TagAuto || tag == TagWarp || strings.HasPrefix(tag, subAutoPrefix)
 }
 
 func logLevel(l string) string {
