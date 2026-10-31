@@ -51,7 +51,7 @@ func BuildPsiphon(p state.Psiphon, socksPort, httpPort int, dataDir, upstream st
 			cfg[k] = v
 		}
 	}
-	def("EmitDiagnosticNotices", true) // warnings say why it does not connect; FoxGozar filters them
+	def("EmitDiagnosticNotices", false)
 	def("UseIndistinguishableTLS", true)
 	def("EstablishTunnelTimeoutSeconds", 0) // keep trying, never give up
 	if upstream != "" {
@@ -69,11 +69,9 @@ func BuildPsiphon(p state.Psiphon, socksPort, httpPort int, dataDir, upstream st
 
 // PsiphonNotice is what FoxGozar reads from Psiphon's notice lines.
 type PsiphonNotice struct {
-	Type    string   // the noticeType
-	Count   int      // Tunnels: how many are established; CandidateServers: how many to try
-	Region  string   // ConnectedServerRegion: the exit country
-	Regions []string // AvailableEgressRegions: the countries Psiphon can exit from
-	Message string   // Alert, Warning, Error: what it says
+	Type   string // the noticeType
+	Count  int    // Tunnels: how many are established
+	Region string // ConnectedServerRegion: the exit country
 }
 
 // ParsePsiphonNotice reads one output line of Psiphon's tunnel core. Its
@@ -86,29 +84,16 @@ func ParsePsiphonNotice(line string) (PsiphonNotice, bool) {
 	var n struct {
 		NoticeType string `json:"noticeType"`
 		Data       struct {
-			Count   int      `json:"count"`
-			Region  string   `json:"serverRegion"`
-			Regions []string `json:"regions"`
-			Message string   `json:"message"`
+			Count  int    `json:"count"`
+			Region string `json:"serverRegion"`
 		} `json:"data"`
 	}
 	if json.Unmarshal([]byte(line[i:]), &n) != nil || n.NoticeType == "" {
 		return PsiphonNotice{}, false
 	}
-	// From a process's output: country codes are never trusted to be
-	// anything but two capitals.
-	code := func(r string) bool { return len(r) == 2 && r[0] >= 'A' && r[0] <= 'Z' && r[1] >= 'A' && r[1] <= 'Z' }
-	out := PsiphonNotice{Type: n.NoticeType, Count: n.Data.Count, Message: n.Data.Message}
-	if code(n.Data.Region) {
-		out.Region = n.Data.Region
+	r := n.Data.Region
+	if len(r) != 2 || r[0] < 'A' || r[0] > 'Z' || r[1] < 'A' || r[1] > 'Z' {
+		r = "" // from a process's output: never trusted to be anything else
 	}
-	for _, r := range n.Data.Regions {
-		if code(r) {
-			out.Regions = append(out.Regions, r)
-		}
-	}
-	if len(out.Message) > 300 {
-		out.Message = out.Message[:300]
-	}
-	return out, true
+	return PsiphonNotice{Type: n.NoticeType, Count: n.Data.Count, Region: r}, true
 }

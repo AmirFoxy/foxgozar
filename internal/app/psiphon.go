@@ -36,9 +36,6 @@ type psiphonState struct {
 	since      time.Time
 	lastErr    string
 	exitIP     string
-	candidates int      // servers Psiphon has to try, from its notices
-	regions    []string // exit countries it can reach
-	lastWarn   time.Time
 }
 
 func (a *App) psiphonProcess() *core.Process {
@@ -68,36 +65,8 @@ func (a *App) psiphonLine(line string) bool {
 		a.setPsiphonConnected(n.Count > 0, "")
 	case "ConnectedServerRegion":
 		a.setPsiphonConnected(true, n.Region)
-	case "CandidateServers":
-		// How many servers it has to try for the chosen country: 0 means
-		// it has nothing to connect to. Logged when the number changes.
-		a.psi.mu.Lock()
-		changed := a.psi.candidates != n.Count
-		a.psi.candidates = n.Count
-		a.psi.mu.Unlock()
-		if changed {
-			a.Log.Add("foxgozar", fmt.Sprintf("Psiphon: %d servers to try for this country", n.Count))
-		}
-	case "AvailableEgressRegions":
-		if len(n.Regions) == 0 {
-			a.Log.Add("foxgozar", "Psiphon: no exit countries known yet (no server list)")
-		} else {
-			a.Log.Add("foxgozar", "Psiphon: exit countries available: "+strings.Join(n.Regions, " "))
-		}
-		a.psi.mu.Lock()
-		a.psi.regions = n.Regions
-		a.psi.mu.Unlock()
-	case "Alert", "Warning", "Error":
-		// Failed attempts repeat every few seconds: one line per 30 s.
-		a.psi.mu.Lock()
-		quiet := time.Since(a.psi.lastWarn) < 30*time.Second
-		if !quiet {
-			a.psi.lastWarn = time.Now()
-		}
-		a.psi.mu.Unlock()
-		if n.Message != "" && !quiet {
-			a.Log.Add("foxgozar", "Psiphon "+strings.ToLower(n.Type)+": "+n.Message)
-		}
+	case "Alert", "Error":
+		return true
 	}
 	return false
 }
