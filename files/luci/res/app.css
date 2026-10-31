@@ -970,7 +970,8 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 .fgz-dcheck[data-advice="direct"] { background: rgb(31 138 76 / 0.55); }
 
 /* live search to add games */
-.fgz-gsearch { padding: 0 18px 16px; position: relative; }
+.fgz-gsearch { padding: 0 18px 16px; position: relative; min-width: 0; }
+.fgz-gsearch input { box-sizing: border-box; width: 100%; max-width: 100%; text-align: start; }
 .fgz-gsearch-list { display: grid; gap: 4px; margin-top: 6px; }
 .fgz-gsearch-list:empty { display: none; }
 .fgz-ghit {

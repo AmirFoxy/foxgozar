@@ -1162,7 +1162,7 @@ function gameArt(game) {
 	// Steam's own address when FoxGozar has looked it up (newer games keep
 	// pictures under hashed paths); the classic one otherwise.
 	if (game.art) return game.art;
-	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/header.jpg';
+	if (game.steam) return 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + game.steam + '/library_600x900_2x.jpg';
 	return '';
 }
 
@@ -1320,7 +1320,7 @@ function gameSearch() {
 			]));
 		}) : [h('small', { 'class': 'fgz-help', style: 'padding:8px 4px' }, q.length < 2 ? '' : t('noGameFound'))]);
 	};
-	var input = h('input', { type: 'search', 'class': 'ltr', placeholder: t('searchGamesPh'), 'aria-label': t('searchGamesPh'),
+	var input = h('input', { type: 'search', dir: 'auto', placeholder: t('searchGamesPh'), 'aria-label': t('searchGamesPh'),
 		oninput: function() {
 			clearTimeout(timer);
 			var q = input.value.trim(), my = ++seq;

@@ -16,8 +16,62 @@ import (
 // Game pictures and the live search for adding games. Both ask Steam's
 // store, through the tunnel.
 
-// steamArt asks Steam for an app's header picture. Newer games keep their
-// pictures under hashed paths, so the address cannot be guessed.
+// steamCapsules asks Steam's store, in one request, for the portrait
+// library picture of each app: 1200x1800 ("2x"), the shape of a game card,
+// where the old header picture is a small 460x215 landscape one. Newer
+// games keep pictures under hashed paths, so addresses come from Steam.
+func (a *App) steamCapsules(ctx context.Context, ids []int) (map[int]string, error) {
+	type idq struct {
+		AppID int `json:"appid"`
+	}
+	q := map[string]any{
+		"ids":          []idq{},
+		"context":      map[string]string{"language": "english", "country_code": "US"},
+		"data_request": map[string]bool{"include_assets": true},
+	}
+	for _, id := range ids {
+		q["ids"] = append(q["ids"].([]idq), idq{id})
+	}
+	in, _ := json.Marshal(q)
+	b, err := a.Fetcher().Get(ctx, "https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json="+url.QueryEscape(string(in)), 4<<20)
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Response struct {
+			Items []struct {
+				AppID  int `json:"appid"`
+				Assets struct {
+					Format string `json:"asset_url_format"`
+					Cap2x  string `json:"library_capsule_2x"`
+					Cap    string `json:"library_capsule"`
+					Hero   string `json:"library_hero"`
+				} `json:"assets"`
+			} `json:"store_items"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(b, &r); err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	for _, it := range r.Response.Items {
+		file := it.Assets.Cap2x
+		if file == "" {
+			file = it.Assets.Cap
+		}
+		if file == "" { // no portrait: the wide, high-resolution hero picture, cropped by the card
+			file = it.Assets.Hero
+		}
+		if file == "" || !strings.Contains(it.Assets.Format, "${FILENAME}") || strings.ContainsAny(file, " \"<>") {
+			continue
+		}
+		out[it.AppID] = "https://shared.akamai.steamstatic.com/store_item_assets/" + strings.Replace(it.Assets.Format, "${FILENAME}", file, 1)
+	}
+	return out, nil
+}
+
+// steamArt asks Steam for an app's header picture: the fallback when it
+// has no portrait one.
 func (a *App) steamArt(ctx context.Context, id int) (string, error) {
 	b, err := a.Fetcher().Get(ctx, "https://store.steampowered.com/api/appdetails?filters=basic&appids="+strconv.Itoa(id), 2<<20)
 	if err != nil {
@@ -44,21 +98,40 @@ func (a *App) steamArt(ctx context.Context, id int) (string, error) {
 func (a *App) ensureArt() {
 	st := a.Store.View()
 	var missing []int
+	a.mu.Lock()
+	if a.artTried == nil {
+		a.artTried = map[int]bool{}
+	}
 	for _, g := range allGames(st) {
-		if g.Steam > 0 && st.ArtCache[strconv.Itoa(g.Steam)] == "" {
+		// A small landscape header cached before portraits were used is
+		// looked up again, once per run (a game with no portrait keeps it).
+		if u := st.ArtCache[strconv.Itoa(g.Steam)]; g.Steam > 0 && !a.artTried[g.Steam] &&
+			(u == "" || strings.Contains(u, "/header")) {
 			missing = append(missing, g.Steam)
 		}
 	}
+	a.mu.Unlock()
 	if len(missing) == 0 || !a.claim("game-art") {
 		return
 	}
+	a.mu.Lock()
+	for _, id := range missing {
+		a.artTried[id] = true
+	}
+	a.mu.Unlock()
 	go func() {
 		defer a.release("game-art")
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		found := map[string]string{}
+		caps, err := a.steamCapsules(ctx, missing)
+		if err != nil {
+			a.Log.Add("foxgozar", "game pictures: "+err.Error())
+		}
 		for _, id := range missing {
-			if u, err := a.steamArt(ctx, id); err == nil {
+			if u := caps[id]; u != "" {
+				found[strconv.Itoa(id)] = u
+			} else if u, err := a.steamArt(ctx, id); err == nil {
 				found[strconv.Itoa(id)] = u
 			}
 		}

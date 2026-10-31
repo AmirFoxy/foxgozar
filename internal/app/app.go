@@ -63,6 +63,7 @@ type App struct {
 	lag              *antiLagState
 	gaming           bool                            // a game is being played: background jobs wait
 	gameSeen         map[string]map[string]time.Time // game -> its servers seen in play
+	artTried         map[int]bool                    // Steam ids whose pictures were looked up this run
 	usage            *usageCounter
 	services         *ServiceResults
 	games            *GameResults
