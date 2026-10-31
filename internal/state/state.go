@@ -171,6 +171,12 @@ type Settings struct {
 	// itself, before WARP.
 	AutoRescue bool `json:"auto_rescue"`
 
+	// Anti-lag: OpenWrt's SQM with cake on the internet port, so downloads
+	// do not make games and calls wait. Needs the line's real speeds.
+	AntiLag  bool `json:"anti_lag"`
+	DownMbps int  `json:"down_mbps,omitempty"`
+	UpMbps   int  `json:"up_mbps,omitempty"`
+
 	Mux          bool   `json:"mux"`
 	TLSFragment  bool   `json:"tls_fragment"`
 	LogLevel     string `json:"log_level"`
@@ -189,6 +195,9 @@ type State struct {
 	Devices  []Device       `json:"devices"`
 	Warp     *Warp          `json:"warp,omitempty"`
 	Share    *Share         `json:"share,omitempty"`
+	// A path of its own per game: "direct" or a server id. Absent = the
+	// tunnel, like everything else.
+	GameRoutes map[string]string `json:"game_routes,omitempty"`
 }
 
 // Share is a server on the router that people elsewhere connect to, so

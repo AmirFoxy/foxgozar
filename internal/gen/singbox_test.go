@@ -211,3 +211,32 @@ func TestBodyFile(t *testing.T) {
 		_ = os.WriteFile(os.Getenv("FGZ_XRAY_DUMP"), x, 0o644)
 	}
 }
+
+func TestGameRoutes(t *testing.T) {
+	st := sampleState(t)
+	st.GameRoutes = map[string]string{"dota2": GameDirect, "valorant": st.Nodes[0].ID, "lol": "n-gone", "bf6": GameDirect}
+	b, err := Build(st, Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		Route struct{ Rules []map[string]any }
+	}
+	_ = json.Unmarshal(b, &cfg)
+	got := map[string]string{} // first port -> outbound
+	firstUser := -1
+	for i, r := range cfg.Route.Rules {
+		if pr, ok := r["port_range"].([]any); ok {
+			got[pr[0].(string)], _ = r["outbound"].(string)
+		}
+		if _, ok := r["domain_suffix"]; ok && firstUser < 0 {
+			firstUser = i
+		}
+	}
+	if got["27015:27200"] != TagDirect || got["7000:8000"] != st.Nodes[0].ID {
+		t.Fatalf("game routes: %v", got)
+	}
+	if len(got) != 2 {
+		t.Fatalf("a removed server, or a game without known ports, must not get a rule: %v", got)
+	}
+}

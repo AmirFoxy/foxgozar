@@ -328,6 +328,9 @@ func Build(st state.State, env Env) ([]byte, error) {
 			rules = append(rules, map[string]any{"rule_set": rs, "action": "reject"})
 		}
 	}
+	// Games with a path of their own, by their UDP ports: ahead of every
+	// other rule, so nothing else catches their match traffic.
+	rules = append(rules, gameRules(st)...)
 	// User rules come before the Iran rule so a user can send an Iranian
 	// site through the tunnel if they want.
 	for _, sr := range st.Rules {

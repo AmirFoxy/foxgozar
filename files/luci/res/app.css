@@ -873,6 +873,16 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 	overflow: hidden;
 	box-shadow: var(--shadow);
 }
+.fgz-statusline { color: var(--fox-text); font-weight: 600; }
+.fgz-statusline[data-on="1"] { color: var(--ok); }
+/* a game's own path, under its servers */
+.fgz-route {
+	display: grid; grid-template-columns: auto minmax(0, 320px); gap: 6px 14px; align-items: center;
+	padding: 12px 22px 16px; border-block-start: 1px solid var(--line); font-size: 14px;
+}
+.fgz-route label { color: var(--ink-2); font-weight: 600; }
+.fgz-route small { grid-column: 1 / -1; color: var(--ink-3); font-size: 13px; }
+@media (max-width: 720px) { .fgz-route { grid-template-columns: 1fr; padding-inline: 14px; } }
 .fgz-banner .art {
 	position: relative;
 	height: 150px;

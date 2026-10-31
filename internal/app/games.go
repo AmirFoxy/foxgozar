@@ -10,6 +10,10 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"foxgozar/internal/core"
+	"foxgozar/internal/gen"
+	"foxgozar/internal/state"
 )
 
 // Game servers speak UDP and are not reachable as such through a proxy. What
@@ -79,6 +83,9 @@ type GameResults struct {
 	Games   []Game                    `json:"games"`
 	Results map[string]map[string]int `json:"results"`
 	At      int64                     `json:"at,omitempty"`
+	// game id -> path of its own; and the games that can have one
+	Routes   map[string]string `json:"routes,omitempty"`
+	Routable map[string]bool   `json:"routable"`
 }
 
 // TestGames measures every region through every server, eight at a time,
@@ -98,8 +105,13 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 8)
+	// Every server, and the direct path (outside the tunnel) as one more.
+	paths := []string{DirectPath}
 	for _, n := range nodes {
-		out.Results[n.ID] = map[string]int{}
+		paths = append(paths, n.ID)
+	}
+	for _, p := range paths {
+		out.Results[p] = map[string]int{}
 		for _, r := range Regions {
 			wg.Add(1)
 			go func(id string, r Region) {
@@ -108,30 +120,71 @@ func (a *App) TestGames(ctx context.Context) (GameResults, error) {
 				defer func() { <-sem }()
 				best := -1
 				for _, host := range r.Hosts { // the second only when the first is down
-					if best = pingVia(ctx, probe, id, st.Token, "http://"+host+"/speedtest/latency.txt"); best > 0 {
+					target := "http://" + host + "/speedtest/latency.txt"
+					if id == DirectPath {
+						best = pingDirect(ctx, target)
+					} else {
+						best = pingVia(ctx, probe, id, st.Token, target)
+					}
+					if best > 0 {
 						break
 					}
 				}
 				mu.Lock()
 				out.Results[id][r.ID] = best
 				mu.Unlock()
-			}(n.ID, r)
+			}(p, r)
 		}
 	}
 	wg.Wait()
 	a.mu.Lock()
 	a.games = &out
 	a.mu.Unlock()
-	return out, nil
+	return a.LastGames(), nil // with the routes, like every other answer
 }
 
 func (a *App) LastGames() GameResults {
+	routes := a.Store.View().GameRoutes
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.games == nil {
-		return GameResults{Regions: Regions, Games: Games, Results: map[string]map[string]int{}}
+	out := GameResults{Regions: Regions, Games: Games, Results: map[string]map[string]int{}}
+	if a.games != nil {
+		out = *a.games
 	}
-	return *a.games
+	out.Routes, out.Routable = routes, map[string]bool{}
+	for id := range gen.GamePorts {
+		out.Routable[id] = true
+	}
+	return out
+}
+
+// DirectPath is the path outside the tunnel, in results and routes.
+const DirectPath = gen.GameDirect
+
+// SetGameRoute gives a game a path of its own: DirectPath, a server id,
+// or "" for the tunnel like everything else.
+func (a *App) SetGameRoute(ctx context.Context, game, via string) error {
+	if _, ok := gen.GamePorts[game]; !ok {
+		return errors.New("this game cannot be given a path of its own: its ports are not known well enough")
+	}
+	err := a.Store.Update(func(s *state.State) error {
+		if via != "" && via != DirectPath && s.NodeByID(via) == nil {
+			return errors.New("no such server")
+		}
+		if s.GameRoutes == nil {
+			s.GameRoutes = map[string]string{}
+		}
+		if via == "" {
+			delete(s.GameRoutes, game)
+		} else {
+			s.GameRoutes[game] = via
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return a.Apply(ctx)
 }
 
 // pingVia measures round trips through one server the way a game feels
@@ -142,8 +195,18 @@ func (a *App) LastGames() GameResults {
 // not used. -1 when the region cannot be reached.
 func pingVia(ctx context.Context, probePort int, node, secret, target string) int {
 	proxy := &url.URL{Scheme: "socks5", Host: fmt.Sprintf("127.0.0.1:%d", probePort), User: url.UserPassword(node, secret)}
-	tr := &http.Transport{Proxy: http.ProxyURL(proxy), MaxIdleConnsPerHost: 1, DisableCompression: true,
-		ResponseHeaderTimeout: 5 * time.Second}
+	return pingOn(ctx, &http.Transport{Proxy: http.ProxyURL(proxy), MaxIdleConnsPerHost: 1, DisableCompression: true,
+		ResponseHeaderTimeout: 5 * time.Second}, target)
+}
+
+// pingDirect is pingVia without the tunnel: the path a game takes when it
+// is routed direct.
+func pingDirect(ctx context.Context, target string) int {
+	return pingOn(ctx, &http.Transport{DialContext: core.MarkedDialer(gen.RoutingMark).DialContext, MaxIdleConnsPerHost: 1,
+		DisableCompression: true, ResponseHeaderTimeout: 5 * time.Second}, target)
+}
+
+func pingOn(ctx context.Context, tr *http.Transport, target string) int {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr, Timeout: 7 * time.Second}
 	get := func() (time.Duration, bool, error) {

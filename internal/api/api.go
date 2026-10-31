@@ -64,6 +64,9 @@ func (s *Server) Handler() http.Handler {
 	h("GET /api/services", s.servicesLast)
 	h("GET /api/games", s.gamesLast)
 	h("POST /api/games/test", s.gamesTest)
+	h("PUT /api/games/{id}/route", s.gameRoute)
+	h("GET /api/antilag", s.antiLag)
+	h("PUT /api/antilag", s.putAntiLag)
 	h("POST /api/ping", s.ping)
 	h("POST /api/services/test", s.servicesTest)
 	h("GET /api/nodes/{id}/share", s.share)
@@ -887,6 +890,38 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]string{"link": n.Link}, nil // the link alone still helps
 	}
 	return map[string]string{"link": n.Link, "svg": svg}, nil
+}
+
+func (s *Server) antiLag(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.AntiLagStatus(), nil
+}
+
+func (s *Server) putAntiLag(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		On   bool `json:"on"`
+		Down int  `json:"down_mbps"`
+		Up   int  `json:"up_mbps"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if err := s.App.SetAntiLag(req.On, req.Down, req.Up); err != nil {
+		return nil, err
+	}
+	return s.App.AntiLagStatus(), nil
+}
+
+func (s *Server) gameRoute(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Via string `json:"via"` // "direct", a server id, or "" for the tunnel
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if err := s.App.SetGameRoute(r.Context(), r.PathValue("id"), req.Via); err != nil {
+		return nil, err
+	}
+	return s.App.LastGames(), nil
 }
 
 func (s *Server) speedResults(w http.ResponseWriter, r *http.Request) (any, error) {

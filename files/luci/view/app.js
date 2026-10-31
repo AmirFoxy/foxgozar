@@ -75,6 +75,11 @@ var T = {
 		keepWarm: 'Keep core ready', keepWarmHint: 'Connect takes under a second; uses about 40 MB of memory',
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
+		antiLag: 'Anti-lag', antiLagLabel: 'Keep ping low while others download', antiLagHint: 'Holds traffic on the router just below your line’s speed (OpenWrt’s SQM with cake), so game and call packets do not wait behind downloads. The first time it installs two official OpenWrt packages.',
+		lineSpeed: 'Your line’s speed (Mbit/s)', lineSpeedHint: 'Measure with the speedtest.net app with every VPN off, and enter the numbers as they are',
+		lagInstalling: 'Installing SQM…', lagActive: 'On: cake is shaping the internet port', lagStarting: 'Starting…',
+		directPath: 'Direct (no tunnel)', gamePath: 'This game’s traffic goes', gameViaTunnel: 'Through the tunnel, like the rest', gameBest: 'Fastest in the last test: {0}, {1} ms',
+		directGameHint: 'Direct works only if the game does not block players from Iran; if it will not connect, choose a server.',
 		speedTest: 'Speed test', speedAll: 'Test speed', speedAllHint: 'Download speed and connection steadiness of every server, one by one. Uses up to 25 MB of each server’s traffic.', speedTesting: 'Testing {0} of {1}…', speedDone: 'Speed test done',
 		speedHint: 'Download speed through this server', speedFailed: 'no download', unstable: 'unsteady',
 		unstableHint: '{0} of {1} new connections were slow or failed (best {2} ms): pages and apps sometimes hang for seconds. Usually the server’s network or filtering, not this router.',
@@ -169,6 +174,11 @@ var T = {
 		keepWarm: 'هسته آماده بماند', keepWarmHint: 'اتصال زیر یک ثانیه؛ حدود ۴۰ مگابایت رم',
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
+		antiLag: 'ضد لگ', antiLagLabel: 'پینگ پایین بماند وقتی بقیه دانلود می‌کنند', antiLagHint: 'ترافیک را روی روتر کمی پایین‌تر از سرعت خط نگه می‌دارد (SQM با cake در OpenWrt)، تا بسته‌های بازی و تماس پشت دانلودها منتظر نمانند. بار اول دو بسته رسمی OpenWrt را نصب می‌کند.',
+		lineSpeed: 'سرعت خط شما (مگابیت)', lineSpeedHint: 'با اپ speedtest.net و با همه VPNها خاموش اندازه بگیرید و همان اعداد را بنویسید',
+		lagInstalling: 'در حال نصب SQM…', lagActive: 'روشن: cake پورت اینترنت را مدیریت می‌کند', lagStarting: 'در حال شروع…',
+		directPath: 'مستقیم (بدون تونل)', gamePath: 'ترافیک این بازی از', gameViaTunnel: 'از تونل، مثل بقیه', gameBest: 'سریع‌ترین در آخرین تست: {0}، {1} میلی‌ثانیه',
+		directGameHint: 'مستقیم فقط وقتی کار می‌کند که بازی بازیکنان ایران را نبندد؛ اگر وصل نشد، یک سرور انتخاب کنید.',
 		speedTest: 'تست سرعت', speedAll: 'تست سرعت', speedAllHint: 'سرعت دانلود و پایداری اتصال همه سرورها، یکی‌یکی. از هر سرور تا ۲۵ مگابایت حجم مصرف می‌کند.', speedTesting: 'تست {0} از {1}…', speedDone: 'تست سرعت تمام شد',
 		speedHint: 'سرعت دانلود از این سرور', speedFailed: 'دانلود نشد', unstable: 'ناپایدار',
 		unstableHint: '{0} از {1} اتصال جدید کند بودند یا وصل نشدند (بهترین {2} میلی‌ثانیه): صفحه‌ها و برنامه‌ها گاهی چند ثانیه گیر می‌کنند. معمولاً از شبکه سرور یا فیلترینگ است، نه این روتر.',
@@ -561,7 +571,7 @@ function loadTab() {
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
 	case 'share': p = api('GET', '/api/sharing').then(function(r) { S.sharing = r; }); break;
 	case 'network': p = api('GET', '/api/devices').then(function(r) { S.devices = r; }); break;
-	case 'games': p = Promise.all([api('GET', '/api/games'), api('GET', '/api/nodes')]).then(function(r) { S.games = r[0]; S.nodes = r[1]; }); break;
+	case 'games': p = Promise.all([api('GET', '/api/games'), api('GET', '/api/nodes'), api('GET', '/api/antilag')]).then(function(r) { S.games = r[0]; S.nodes = r[1]; S.lag = r[2]; }); break;
 	case 'devices': p = Promise.all([api('GET', '/api/devices'), api('GET', '/api/nodes')]).then(function(r) { S.devices = r[0]; S.nodes = r[1]; }); break;
 	case 'logs': S.logSeq = 0; S.logLines = []; p = pollLogs(); break;
 	}
@@ -1128,9 +1138,10 @@ function gameArt(game) {
 function panelGames() {
 	var g = S.games || {};
 	var res = g.results || {};
-	var names = {};
+	var names = { direct: t('directPath') };
 	S.nodes.forEach(function(n) { names[n.id] = n.name; });
 	var conns = Object.keys(res).filter(function(id) { return names[id]; });
+	var routes = g.routes || {}, routable = g.routable || {};
 	var btn = h('button', { 'class': 'fgz-btn primary', onclick: function() {
 		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
 		btn.textContent = t('testing');
@@ -1164,12 +1175,69 @@ function panelGames() {
 		});
 		var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
 		if (img) img.addEventListener('error', function() { img.remove(); });
-		return h('article', { 'class': 'fgz-banner', 'data-game': game.id }, [
+		return h('article', { 'class': 'fgz-banner', 'data-game': game.id }, present([
 			h('div', { 'class': 'art' }, present([img, h('h4', { dir: 'ltr' }, game.name)])),
-			h('div', { 'class': 'srvs' }, servers)
-		]);
+			h('div', { 'class': 'srvs' }, servers),
+			routable[game.id] ? gameRouteBar(game, res, conns, names, routes[game.id] || '') : null
+		]));
 	});
-	return h('div', {}, [head, h('div', { 'class': 'fgz-banners' }, banners)]);
+	return h('div', {}, [antiLagCard(), head, h('div', { 'class': 'fgz-banners' }, banners)]);
+}
+
+// Anti-lag (SQM/cake): the line's speeds, a switch, and what it is doing.
+function antiLagCard() {
+	var l = S.lag;
+	if (!l) return h('div');
+	var down = h('input', { type: 'number', min: '1', 'class': 'ltr', value: l.down_mbps || '', placeholder: 'Mbps' });
+	var up = h('input', { type: 'number', min: '1', 'class': 'ltr', value: l.up_mbps || '', placeholder: 'Mbps' });
+	var put = function(on, btn) {
+		var p = api('PUT', '/api/antilag', { on: on, down_mbps: parseInt(down.value, 10) || 0, up_mbps: parseInt(up.value, 10) || 0 })
+			.then(function(r) { S.lag = r; renderPanel(); }).catch(function(err) { toast(err.message); renderPanel(); });
+		if (btn) busy(btn, p);
+		return p;
+	};
+	var status = l.installing ? t('lagInstalling') : l.error ? l.error : l.on ? (l.active ? t('lagActive') : t('lagStarting')) : null;
+	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, t('antiLag')), h('div', { 'class': 'fgz-panel' }, present([
+		h('div', { 'class': 'fgz-field' }, [
+			h('label', { 'for': 'fgz-lag' }, [t('antiLagLabel'), h('small', {}, t('antiLagHint'))]),
+			h('input', { id: 'fgz-lag', type: 'checkbox', 'class': 'fgz-switch', checked: !!l.on,
+				onchange: function(e) { put(e.target.checked); } })
+		]),
+		h('div', { 'class': 'fgz-field' }, [
+			h('label', {}, [t('lineSpeed'), h('small', {}, t('lineSpeedHint'))]),
+			h('div', { style: 'display:grid;gap:8px' }, [
+				h('div', { 'class': 'fgz-two' }, [h('label', {}, [t('download'), down]), h('label', {}, [t('upload'), up])]),
+				h('button', { 'class': 'fgz-btn', onclick: function(e) { put(!!l.on, e.currentTarget).then(function() { toast(t('saved')); }); } }, t('save'))
+			])
+		]),
+		status ? h('p', { 'class': 'fgz-help', style: 'padding-top:12px' }, [h('span', { 'class': 'fgz-statusline', 'data-on': l.active ? '1' : '0' }, status)]) : null
+	]))]);
+}
+
+// The path this game's match traffic takes, with the fastest one from the
+// last test pointed out (lowest ping to any of the game's server cities).
+function gameRouteBar(game, res, conns, names, cur) {
+	var best = null;
+	conns.forEach(function(id) {
+		game.servers.forEach(function(sv) {
+			var ms = res[id][sv.region];
+			if (ms > 0 && (!best || ms < best.ms)) best = { id: id, ms: ms };
+		});
+	});
+	var opts = [['', t('gameViaTunnel')], ['direct', t('directPath')]].concat(S.nodes.map(function(n) { return [n.id, n.name]; }));
+	var sel = h('select', { 'aria-label': t('gamePath'), onchange: function(e) {
+		busy(e.target, api('PUT', '/api/games/' + game.id + '/route', { via: e.target.value })
+			.then(function(r) { S.games = r; toast(t('saved')); renderPanel(); })
+			.catch(function(err) { toast(err.message); renderPanel(); }));
+	} }, opts.map(function(o) {
+		var mark = best && best.id === o[0] ? '  ★ ' + num(best.ms) + ' ms' : '';
+		return h('option', { value: o[0], selected: o[0] === cur }, o[1] + mark);
+	}));
+	return h('div', { 'class': 'fgz-route' }, present([
+		h('label', {}, t('gamePath')),
+		sel,
+		cur === 'direct' ? h('small', {}, t('directGameHint')) : best ? h('small', {}, t('gameBest', names[best.id], num(best.ms))) : null
+	]));
 }
 
 /* ---------- subscriptions */
@@ -1651,6 +1719,9 @@ function tick() {
 		api('GET', '/api/warp').then(function(r) { S.warp = r; var el = document.getElementById('fgz-warp'); if (el) el.replaceChildren.apply(el, warpLine()); }).catch(function() {});
 	if (S.tab === 'network')
 		api('GET', '/api/devices').then(function(r) { S.devices = r; drawMap(); }).catch(function() {});
+	// Anti-lag installing or starting: follow it until it is on.
+	if (S.tab === 'games' && S.lag && (S.lag.installing || (S.lag.on && !S.lag.active && !S.lag.error)) && !document.querySelector('.fgz input:focus'))
+		api('GET', '/api/antilag').then(function(r) { S.lag = r; renderPanel(); }).catch(function() {});
 	if (S.tab === 'share' && !document.querySelector('.fgz-dialog[open], .fgz input:focus'))
 		api('GET', '/api/sharing').then(function(r) { S.sharing = r; renderPanel(); }).catch(function() {});
 	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))

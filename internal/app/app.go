@@ -60,6 +60,7 @@ type App struct {
 	speed            *speedTests
 	inRescue         bool   // a rescue round is changing settings
 	lastRescue       string // what the last successful one changed
+	lag              *antiLagState
 	services         *ServiceResults
 	games            *GameResults
 }
@@ -68,7 +69,8 @@ func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
 		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats(),
 		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}},
-		speed:    &speedTests{res: map[string]SpeedResult{}}}
+		speed:    &speedTests{res: map[string]SpeedResult{}},
+		lag:      &antiLagState{}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
