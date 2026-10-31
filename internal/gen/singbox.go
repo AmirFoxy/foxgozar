@@ -39,6 +39,9 @@ type Env struct {
 
 	// The internet provider's DNS server, used when DirectDNS is "isp".
 	ISPDNS string
+	// Psiphon's local SOCKS port while it is connected, else 0: the chosen
+	// domains go through it only then, and through the tunnel otherwise.
+	PsiphonPort int
 
 	RuleDir   string // where the .srs files live
 	CacheFile string
@@ -327,6 +330,11 @@ func Build(st state.State, env Env) ([]byte, error) {
 		if len(rs) > 0 {
 			rules = append(rules, map[string]any{"rule_set": rs, "action": "reject"})
 		}
+	}
+	if p := st.Psiphon; p != nil && p.Enabled && env.PsiphonPort > 0 && len(toAny(p.Domains)) > 0 {
+		outbounds = append(outbounds, map[string]any{"type": "socks", "tag": TagPsiphon,
+			"server": "127.0.0.1", "server_port": env.PsiphonPort})
+		rules = append(rules, map[string]any{"domain_suffix": toAny(p.Domains), "outbound": TagPsiphon})
 	}
 	// User rules come before the Iran rule so a user can send an Iranian
 	// site through the tunnel if they want.

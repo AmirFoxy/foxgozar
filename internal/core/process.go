@@ -25,6 +25,9 @@ type Process struct {
 	Check  []string // args for a config check, nil when there is none
 	Log    *Ring
 	OnExit func(err error) // called when the process dies on its own
+	// OnLine sees every output line first; false keeps it out of the log
+	// (Psiphon's machine-readable notices, say).
+	OnLine func(line string) bool
 
 	mu      sync.Mutex
 	cmd     *exec.Cmd
@@ -100,6 +103,9 @@ func (p *Process) spawnLocked() error {
 		sc := bufio.NewScanner(pr)
 		sc.Buffer(make([]byte, 64*1024), 64*1024)
 		for sc.Scan() {
+			if p.OnLine != nil && !p.OnLine(sc.Text()) {
+				continue
+			}
 			p.Log.Add(p.Name, sc.Text())
 		}
 	}()

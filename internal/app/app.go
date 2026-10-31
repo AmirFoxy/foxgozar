@@ -57,6 +57,8 @@ type App struct {
 	share            *core.Process
 	shareUse         *shareUsage
 	iranKey          string // what the dual-WAN Iran routes hold now
+	psiphon          *core.Process
+	psi              *psiphonState
 	services         *ServiceResults
 	games            *GameResults
 }
@@ -64,7 +66,8 @@ type App struct {
 func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
 		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats(),
-		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}}}
+		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}},
+		psi:      &psiphonState{}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
@@ -124,6 +127,11 @@ func (a *App) Boot(ctx context.Context) {
 	if err := a.syncShare(st0); err != nil {
 		a.Log.Add("foxgozar", "sharing: "+err.Error())
 	}
+	go func() {
+		if err := a.syncPsiphon(ctx); err != nil {
+			a.Log.Add("foxgozar", "Psiphon: "+err.Error())
+		}
+	}()
 	// Whatever a previous foxgozar left behind points at a core that is gone.
 	fw.Down()
 	if s.Enabled {
@@ -273,6 +281,7 @@ func (a *App) Shutdown() {
 	a.stopLocked(true)
 	_ = fw.Block(fw.Config{})
 	a.shareProcess().Stop()
+	a.psiphonProcess().Stop()
 	a.mu.Lock()
 	a.blockKey = ""
 	a.mu.Unlock()
