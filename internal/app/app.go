@@ -58,6 +58,8 @@ type App struct {
 	shareUse         *shareUsage
 	iranKey          string // what the dual-WAN Iran routes hold now
 	speed            *speedTests
+	inRescue         bool   // a rescue round is changing settings
+	lastRescue       string // what the last successful one changed
 	services         *ServiceResults
 	games            *GameResults
 }
@@ -142,6 +144,7 @@ func (a *App) Boot(ctx context.Context) {
 	}
 	go a.loop(ctx)
 	go a.warpWatch(ctx)
+	go a.rescueWatch(ctx)
 	go a.shareWatch(ctx)
 }
 

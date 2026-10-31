@@ -182,6 +182,9 @@ func (a *App) warpWatch(ctx context.Context) {
 			fails = 0
 			continue
 		}
+		if a.rescuing() {
+			continue // settings are being tried; judge the servers after
+		}
 		cl := a.Clash()
 		if on {
 			if n%6 != 0 { // servers are checked once a minute while on WARP

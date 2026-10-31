@@ -167,6 +167,10 @@ type Settings struct {
 	// Keep the core running while disconnected, so Connect is one nft call.
 	KeepWarm bool `json:"keep_warm"`
 
+	// When every server fails, try TLS fragment and multiplex on and off by
+	// itself, before WARP.
+	AutoRescue bool `json:"auto_rescue"`
+
 	Mux          bool   `json:"mux"`
 	TLSFragment  bool   `json:"tls_fragment"`
 	LogLevel     string `json:"log_level"`
@@ -247,6 +251,7 @@ func Defaults() Settings {
 		DirectDNS:     "isp", // the provider’s DNS: Iranian sites get Iranian addresses
 		DefaultPolicy: "proxy",
 		KeepWarm:      true,
+		AutoRescue:    true,
 		LogLevel:      "warn",
 		CoreChannel:   "stable",
 		Language:      "fa",

@@ -71,6 +71,7 @@ var T = {
 		lan: 'LAN interfaces', lanHint: 'Comma-separated, usually br-lan',
 		mux: 'Multiplex', muxHint: 'Fewer handshakes on servers that support it',
 		fragment: 'TLS fragment', fragmentHint: 'Splits the TLS hello; can get past some filtering',
+		autoRescue: 'Try again when filtering changes', autoRescueHint: 'When every server stops answering, FoxGozar tries TLS fragment and multiplex on and off by itself, keeps what works, and says so in the log',
 		keepWarm: 'Keep core ready', keepWarmHint: 'Connect takes under a second; uses about 40 MB of memory',
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
@@ -164,6 +165,7 @@ var T = {
 		lan: 'اینترفیس‌های LAN', lanHint: 'با کاما جدا کنید، معمولاً br-lan',
 		mux: 'Multiplex', muxHint: 'روی سرورهایی که پشتیبانی می‌کنند، هندشیک کمتر',
 		fragment: 'TLS fragment', fragmentHint: 'Hello تی‌ال‌اس را تکه می‌کند؛ گاهی از فیلتر رد می‌شود',
+		autoRescue: 'تلاش دوباره وقتی فیلترینگ عوض می‌شود', autoRescueHint: 'وقتی هیچ سروری جواب نمی‌دهد، فاکس‌گذر خودش TLS fragment و multiplex را روشن و خاموش امتحان می‌کند، هر کدام کار کرد نگه می‌دارد و در گزارش می‌نویسد',
 		keepWarm: 'هسته آماده بماند', keepWarmHint: 'اتصال زیر یک ثانیه؛ حدود ۴۰ مگابایت رم',
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
@@ -1358,7 +1360,8 @@ function panelSettings() {
 			testTargetField(),
 			inputField('test_interval', t('testInterval'), null, 'number', int),
 			inputField('tolerance', t('tolerance'), t('toleranceHint'), 'number', int),
-			switchField('keep_warm', t('keepWarm'), t('keepWarmHint'))
+			switchField('keep_warm', t('keepWarm'), t('keepWarmHint')),
+			switchField('auto_rescue', t('autoRescue'), t('autoRescueHint'))
 		]),
 		section(t('sDns'), [
 			inputField('remote_dns', t('remoteDns'), 'https://1.1.1.1/dns-query'),
