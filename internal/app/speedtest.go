@@ -88,23 +88,11 @@ func (a *App) SpeedTest(ctx context.Context, node string) (SpeedResult, error) {
 
 	// 1. Fresh connections, one after another. At most 30 s in all: the web
 	// server gives a request 60.
-	c, tr := a.speedClient(node, false, 6*time.Second)
-	sctx, scancel := context.WithTimeout(ctx, 30*time.Second)
-	defer scancel()
-	for i := 0; i < setupTries && sctx.Err() == nil; i++ {
-		t0 := time.Now()
-		req, _ := http.NewRequestWithContext(sctx, http.MethodGet, st.Settings.TestURL, nil)
-		resp, err := c.Do(req)
-		if err != nil {
-			r.Setup = append(r.Setup, -1)
-			continue
-		}
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
-		resp.Body.Close()
-		r.Setup = append(r.Setup, int(time.Since(t0).Milliseconds()))
-	}
-	tr.CloseIdleConnections()
+	r.Setup = a.setupSamples(ctx, node, setupTries, 30*time.Second)
 	r.Best, r.Slow, r.Unstable = judgeSetup(r.Setup)
+	a.noteSteadiness(node, r.Unstable)
+	var c *http.Client
+	var tr *http.Transport
 
 	// 2. Download for a few seconds; the rate counts from the first byte, so
 	// connection setup (measured above) does not lower it.
@@ -150,6 +138,30 @@ func (a *App) SpeedResults() map[string]SpeedResult {
 	out := make(map[string]SpeedResult, len(a.speed.res))
 	for k, v := range a.speed.res {
 		out[k] = v
+	}
+	return out
+}
+
+// setupSamples opens n fresh connections through node one after another
+// and times each to its first reply (-1: failed), within limit in all.
+func (a *App) setupSamples(ctx context.Context, node string, n int, limit time.Duration) []int {
+	url := a.Store.View().Settings.TestURL
+	c, tr := a.speedClient(node, false, 6*time.Second)
+	defer tr.CloseIdleConnections()
+	sctx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	var out []int
+	for i := 0; i < n && sctx.Err() == nil; i++ {
+		t0 := time.Now()
+		req, _ := http.NewRequestWithContext(sctx, http.MethodGet, url, nil)
+		resp, err := c.Do(req)
+		if err != nil {
+			out = append(out, -1)
+			continue
+		}
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+		resp.Body.Close()
+		out = append(out, int(time.Since(t0).Milliseconds()))
 	}
 	return out
 }

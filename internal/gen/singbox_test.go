@@ -260,3 +260,43 @@ func TestGameDownloadsDirect(t *testing.T) {
 		t.Fatal("the store itself (logins) must stay on the tunnel")
 	}
 }
+
+func TestAutoAvoidsUnsteady(t *testing.T) {
+	st := sampleState(t)
+	env := Env{RuleDir: t.TempDir(), TProxyPort: 7893, DNSPort: 1053, ClashPort: 9090}
+	members := func(b []byte) []any {
+		var cfg struct{ Outbounds []map[string]any }
+		_ = json.Unmarshal(b, &cfg)
+		for _, o := range cfg.Outbounds {
+			if o["tag"] == TagAuto {
+				return o["outbounds"].([]any)
+			}
+		}
+		return nil
+	}
+	b, _ := Build(st, env)
+	all := len(members(b))
+	env.Avoid = map[string]bool{st.Nodes[0].ID: true}
+	b, _ = Build(st, env)
+	got := members(b)
+	if len(got) != all-1 {
+		t.Fatalf("one unsteady server: %d of %d left", len(got), all)
+	}
+	for _, m := range got {
+		if m == st.Nodes[0].ID {
+			t.Fatal("the unsteady server is still in the automatic choice")
+		}
+	}
+	if !strings.Contains(string(b), `"outbound": "`+st.Nodes[0].ID+`"`) && !strings.Contains(string(b), `"tag": "`+st.Nodes[0].ID+`"`) {
+		t.Fatal("it must stay selectable by hand")
+	}
+	// All unsteady: the automatic choice keeps them all rather than none.
+	env.Avoid = map[string]bool{}
+	for _, n := range st.Nodes {
+		env.Avoid[n.ID] = true
+	}
+	b, _ = Build(st, env)
+	if len(members(b)) != all {
+		t.Fatal("never leave the automatic choice empty")
+	}
+}

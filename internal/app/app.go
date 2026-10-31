@@ -65,6 +65,7 @@ type App struct {
 	gameSeen         map[string]map[string]time.Time // game -> its servers seen in play
 	artTried         map[int]bool                    // Steam ids whose pictures were looked up this run
 	directChecks     map[string]DirectCheck          // the last automatic direct check, by game
+	steady           *steadiness
 	usage            *usageCounter
 	services         *ServiceResults
 	games            *GameResults
@@ -76,7 +77,8 @@ func New(p Paths, st *state.Store) *App {
 		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}},
 		speed:    &speedTests{res: map[string]SpeedResult{}},
 		lag:      &antiLagState{},
-		usage:    &usageCounter{conns: map[string][3]int64{}, pending: map[string][2]int64{}}}
+		usage:    &usageCounter{conns: map[string][3]int64{}, pending: map[string][2]int64{}},
+		steady:   &steadiness{unstable: map[string]bool{}}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}
@@ -154,6 +156,7 @@ func (a *App) Boot(ctx context.Context) {
 	go a.warpWatch(ctx)
 	go a.rescueWatch(ctx)
 	go a.usageWatch(ctx)
+	go a.serverWatch(ctx)
 	go a.shareWatch(ctx)
 }
 

@@ -512,6 +512,7 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 
 .fgz input[type="text"], .fgz input[type="number"], .fgz input[type="url"], .fgz input[type="time"], .fgz input[type="search"], .fgz select, .fgz textarea {
 	width: 100%;
+	box-sizing: border-box; /* padding inside the width: a full-width field never overflows */
 	color: var(--ink);
 	background: var(--paper);
 	border: 1px solid var(--line);
@@ -992,6 +993,33 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 }
 .fgz-route label { color: var(--ink-2); font-weight: 600; }
 .fgz-route small { grid-column: 1 / -1; color: var(--ink-3); font-size: 13px; }
+/* the site doctor: one row per way to the site, then the advice */
+.fgz-doctor { display: grid; }
+.fgz-drow {
+	display: grid; grid-template-columns: 9px minmax(0, 0.9fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center;
+	padding: 9px 18px; border-block-start: 1px solid var(--line); font-size: 14px;
+}
+.fgz-drow .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+.fgz-drow[data-ok="1"] .dot { background: var(--ok); }
+.fgz-drow b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-drow small { color: var(--ink-2); font-size: 13px; }
+.fgz-dsuggest { display: grid; gap: 10px; justify-items: start; padding: 14px 18px 16px; border-block-start: 1px solid var(--line); background: var(--sunken); }
+.fgz-dsuggest p { margin: 0; color: var(--ink); font-weight: 600; }
+.fgz-dsuggest[data-why="nothing"] p { color: var(--bad); }
+.fgz-dsuggest small { color: var(--ink-3); }
+@media (max-width: 720px) {
+	.fgz-drow { grid-template-columns: 9px minmax(0, 1fr) auto; padding-inline: 14px; }
+	.fgz-drow small:not(.num) { grid-column: 2 / -1; grid-row: 2; }
+}
+/* a server's last 24 hours: half an hour a bar */
+.fgz-uptime { display: flex; align-items: center; gap: 8px; margin-block-start: 6px; }
+.fgz[dir="rtl"] .fgz-uptime { justify-content: flex-end; }
+.fgz-uptime .bars { display: inline-flex; gap: 1px; height: 12px; align-items: stretch; }
+.fgz-uptime .bars i { width: 3px; border-radius: 1px; background: var(--line); }
+.fgz-uptime .bars i[data-s="u"] { background: var(--ok); }
+.fgz-uptime .bars i[data-s="p"] { background: var(--fox); }
+.fgz-uptime .bars i[data-s="d"] { background: var(--bad); }
+.fgz-uptime small { color: var(--ink-3); font-size: 12px; }
 .fgz-statusline { color: var(--fox-text); font-weight: 600; }
 .fgz-statusline[data-on="1"] { color: var(--ok); }
 .fgz-gamelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; max-height: 40vh; overflow: auto; }

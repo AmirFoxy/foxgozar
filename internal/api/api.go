@@ -102,6 +102,9 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/rulesets/update", s.rulesetUpdate)
 	h("GET /api/config", s.config)
 	h("GET /api/usage", s.usage)
+	h("GET /api/uptime", s.uptime)
+	h("POST /api/doctor", s.doctor)
+	h("POST /api/doctor/apply", s.doctorApply)
 	h("GET /api/speedtest", s.speedResults)
 	h("POST /api/speedtest/{id}", s.speedTest)
 	h("GET /api/sharing", s.shareServer)
@@ -989,6 +992,31 @@ func (s *Server) gameRoute(w http.ResponseWriter, r *http.Request) (any, error) 
 		return nil, err
 	}
 	return s.App.LastGames(), nil
+}
+
+func (s *Server) doctor(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Site string `json:"site"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	return s.App.Doctor(r.Context(), req.Site)
+}
+
+func (s *Server) doctorApply(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Site   string `json:"site"`
+		Target string `json:"target"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	return nil, s.App.ApplyDoctor(r.Context(), req.Site, req.Target)
+}
+
+func (s *Server) uptime(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.Uptime(), nil
 }
 
 func (s *Server) usage(w http.ResponseWriter, r *http.Request) (any, error) {

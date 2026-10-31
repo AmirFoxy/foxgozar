@@ -39,6 +39,8 @@ type Env struct {
 
 	// The internet provider's DNS server, used when DirectDNS is "isp".
 	ISPDNS string
+	// Servers the automatic choice leaves out: found unsteady.
+	Avoid map[string]bool
 
 	RuleDir   string // where the .srs files live
 	CacheFile string
@@ -136,8 +138,23 @@ func Build(st state.State, env Env) ([]byte, error) {
 	if tolerance <= 0 {
 		tolerance = 50
 	}
+	// The automatic choice leaves out servers whose connections come up
+	// unsteadily, as long as a steady one is left: their ping can look fine
+	// while pages hang for seconds. They stay selectable by hand.
+	autoTags := tags
+	if len(env.Avoid) > 0 {
+		var steady []any
+		for _, t := range tags {
+			if !env.Avoid[t.(string)] {
+				steady = append(steady, t)
+			}
+		}
+		if len(steady) > 0 {
+			autoTags = steady
+		}
+	}
 	auto := map[string]any{
-		"type": "urltest", "tag": TagAuto, "outbounds": tags,
+		"type": "urltest", "tag": TagAuto, "outbounds": autoTags,
 		"url": s.TestURL, "interval": fmt.Sprintf("%ds", interval),
 		"tolerance": tolerance, "idle_timeout": "30m",
 		"interrupt_exist_connections": s.InterruptOnSwitch,

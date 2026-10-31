@@ -179,6 +179,9 @@ type Settings struct {
 	// After a match, a game whose own servers answer directly and faster
 	// than the tunnel is switched to direct for the next one.
 	AutoDirectGames bool `json:"auto_direct_games"`
+	// The automatic choice skips servers whose connections come up
+	// unsteadily, while a steady one is left.
+	SmartAuto bool `json:"smart_auto"`
 
 	AntiLag  bool `json:"anti_lag"`
 	DownMbps int  `json:"down_mbps,omitempty"`
@@ -208,8 +211,10 @@ type State struct {
 	// Games the user hid from the Games tab, and games the user added.
 	// Traffic per server per month ("2006-01" -> node -> up, down), the
 	// last twelve months.
-	Usage       map[string]map[string][2]int64 `json:"usage,omitempty"`
-	HiddenGames []string                       `json:"hidden_games,omitempty"`
+	Usage map[string]map[string][2]int64 `json:"usage,omitempty"`
+	// Whether each server answered, ten minutes at a time, the last week.
+	Uptime      map[string]UptimeLog `json:"uptime,omitempty"`
+	HiddenGames []string             `json:"hidden_games,omitempty"`
 	// Steam app id -> its header picture's address, as Steam's own API
 	// gives it (newer games keep pictures under hashed paths).
 	ArtCache    map[string]string `json:"art_cache,omitempty"`
@@ -285,6 +290,7 @@ func Defaults() Settings {
 		DefaultPolicy: "proxy",
 		KeepWarm:      true,
 		AutoRescue:    true,
+		SmartAuto:     true,
 		LogLevel:      "warn",
 		CoreChannel:   "stable",
 		Language:      "fa",
@@ -464,4 +470,11 @@ func (s *State) DeviceByMAC(mac string) *Device {
 type Warp struct {
 	Account   warp.Account `json:"account"`
 	Endpoints []string     `json:"endpoints"`
+}
+
+// UptimeLog is one server's week: a mark per ten-minute slot from Start
+// (unix seconds): 'u' answered, 'd' did not, '-' not measured.
+type UptimeLog struct {
+	Start int64  `json:"start"`
+	Marks string `json:"marks"`
 }

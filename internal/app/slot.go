@@ -97,6 +97,7 @@ func (a *App) envFor(st state.State, sl *slot) gen.Env {
 		XrayBase:   sl.xrayBase(),
 		ProbePort:  sl.probePort(st.Settings),
 		ISPDNS:     ispDNS(),
+		Avoid:      a.avoidSet(),
 	}
 }
 

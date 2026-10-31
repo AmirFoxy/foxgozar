@@ -76,6 +76,13 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		doctor: 'Site doctor', doctorHint: 'A site does not open? Type it: FoxGozar tries it directly and through every server, says what is wrong, and makes the rule that fixes it.', doctorPh: 'Site, e.g. example.com', doctorGo: 'Check',
+		drOpens: 'opens', drChallenge: 'answers (a robot check: fine in a browser)', drSanctioned: 'this service refuses Iran', drFilteredDns: 'filtered (Iran’s filter answered)', drFilteredSni: 'filtered (the connection is cut)',
+		drCountry: 'the site refuses this country', drRefused: 'the site refused ({0})', drTimeout: 'no answer', drTls: 'secure connection failed', drDns: 'name not found', drError: 'error',
+		drWhyDirect: '{0} opens without the tunnel: going direct is faster and spares your server’s traffic.', drWhyTunnel: '{0} opens only through the tunnel.', drWhySome: '{0} opens through {1} only.', drWhyNothing: '{0} opens no way: it may be down, or refuse every address tried.',
+		drWhySanctioned: 'It refuses users in Iran even where its front page opens, so it stays on the tunnel.', drApply: 'Send it {0}', drApplied: '{0} now goes {1}', drAlready: 'Your rules already do this.',
+		uptimeHint: 'The last 24 hours, half an hour a bar: green answered, red did not, yellow partly, grey not measured. The percentage is over the last week.', uptimePct: '{0}% up this week', uptimeNone: 'not measured yet',
+		smartAuto: 'Skip unsteady servers', smartAutoHint: 'Every half hour each server opens a few tiny connections. One whose connections come up unsteadily is left out of the automatic choice while a steady one is left (still selectable by hand).',
 		autoDirect: 'Games go direct by themselves when better', autoDirectHint: 'After every match FoxGozar checks whether that game’s own servers answer directly and faster than the tunnel, and shows it on its card. With this on, such a game plays direct from its next match; its launcher stays on the tunnel. Never changes during a match.',
 		moreCities: '+{0} more cities', notRoutable: 'This game’s match traffic cannot be told apart from the rest, so it follows the tunnel.',
 		searchGamesPh: 'Search a game to add…', searching: 'Searching…', noGameFound: 'Nothing found', inList: 'on the list', restoreGame: 'bring back', addThis: 'add',
@@ -187,6 +194,13 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		doctor: 'دکتر سایت', doctorHint: 'سایتی باز نمی‌شود؟ آدرسش را بنویس: فاکس‌گذر آن را مستقیم و از هر سرور امتحان می‌کند، می‌گوید مشکل چیست و قانونی که درستش می‌کند را می‌سازد.', doctorPh: 'آدرس سایت، مثلاً example.com', doctorGo: 'بررسی',
+		drOpens: 'باز می‌شود', drChallenge: 'جواب می‌دهد (بررسی ربات؛ در مرورگر مشکلی نیست)', drSanctioned: 'این سرویس ایران را تحریم کرده', drFilteredDns: 'فیلتر (فیلترینگ ایران جواب داد)', drFilteredSni: 'فیلتر (اتصال قطع می‌شود)',
+		drCountry: 'سایت این کشور را نمی‌پذیرد', drRefused: 'سایت رد کرد ({0})', drTimeout: 'جواب نداد', drTls: 'اتصال امن برقرار نشد', drDns: 'آدرس پیدا نشد', drError: 'خطا',
+		drWhyDirect: '{0} بدون تونل باز می‌شود: مستقیم سریع‌تر است و حجم سرورت را مصرف نمی‌کند.', drWhyTunnel: '{0} فقط از تونل باز می‌شود.', drWhySome: '{0} فقط از {1} باز می‌شود.', drWhyNothing: '{0} از هیچ راهی باز نمی‌شود: شاید از کار افتاده، یا همه آدرس‌ها را رد می‌کند.',
+		drWhySanctioned: 'این سرویس کاربران ایران را رد می‌کند، حتی اگر صفحه اولش باز شود؛ پس از تونل می‌ماند.', drApply: 'بفرستش {0}', drApplied: '{0} از این به بعد {1}', drAlready: 'قوانین تو همین کار را می‌کنند.',
+		uptimeHint: '۲۴ ساعت اخیر، هر نوار نیم ساعت: سبز جواب داده، قرمز نداده، زرد گاهی، خاکستری اندازه‌گیری نشده. درصد مربوط به هفته اخیر است.', uptimePct: '{0}٪ در دسترس این هفته', uptimeNone: 'هنوز اندازه‌گیری نشده',
+		smartAuto: 'رد کردن سرورهای ناپایدار', smartAutoHint: 'هر نیم ساعت از هر سرور چند اتصال کوچک باز می‌شود. سروری که اتصال‌هایش ناپایدار باز می‌شوند از انتخاب خودکار کنار گذاشته می‌شود، به شرط اینکه سرور پایداری باقی بماند (دستی هنوز قابل انتخاب است).',
 		autoDirect: 'بازی‌ها خودکار مستقیم شوند وقتی بهتر است', autoDirectHint: 'بعد از هر بازی، فاکس‌گذر بررسی می‌کند که سرورهای خود آن بازی مستقیم و سریع‌تر از تونل جواب می‌دهند یا نه، و روی کارتش نشان می‌دهد. با روشن بودن این گزینه، آن بازی از بازی بعد مستقیم می‌رود؛ لانچرش از تونل می‌ماند. وسط بازی هیچ‌وقت عوض نمی‌شود.',
 		moreCities: '+{0} شهر دیگر', notRoutable: 'ترافیک بازی این بازی از بقیه قابل تشخیص نیست، پس از تونل می‌رود.',
 		searchGamesPh: 'جستجوی بازی برای افزودن…', searching: 'در حال جستجو…', noGameFound: 'چیزی پیدا نشد', inList: 'در لیست است', restoreGame: 'برگرداندن', addThis: 'افزودن',
@@ -592,7 +606,7 @@ function renderTabs() {
 function loadTab() {
 	var p;
 	switch (S.tab) {
-	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services'), api('GET', '/api/speedtest'), api('GET', '/api/usage')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; S.speed2 = r[3]; S.usage = r[4]; }); break;
+	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services'), api('GET', '/api/speedtest'), api('GET', '/api/usage'), api('GET', '/api/uptime')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; S.speed2 = r[3]; S.usage = r[4]; S.uptime = r[5]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
@@ -686,7 +700,7 @@ function row(id, name, sub, delay, checked, live) {
 		onkeydown: function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(id); } }
 	}, [
 		h('span', { 'class': 'dot' }),
-		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: id.indexOf('auto') === 0 ? 'auto' : 'ltr' }, sub) : null, serviceChips(id), speedLine(id)]),
+		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: id.indexOf('auto') === 0 ? 'auto' : 'ltr' }, sub) : null, serviceChips(id), speedLine(id), uptimeStrip(id)]),
 		id.indexOf('auto') === 0 || !delayText ? h('span') : h('span', { 'class': 'fgz-delay num', 'data-q': q, dir: delay > 0 ? 'ltr' : null }, delayText),
 		id.indexOf('auto') === 0 ? h('span') : h('span', { style: 'display:flex' }, [
 			h('button', { 'class': 'fgz-icon', title: t('test'), 'aria-label': t('test'), onclick: function(e) {
@@ -727,6 +741,25 @@ function speedLine(id) {
 			r.mbps > 0 ? num(Math.round(r.mbps * 10) / 10) + ' Mbps' : t('speedFailed')) : null,
 		r && r.unstable ? h('span', { 'class': 'fgz-svc', 'data-ok': '0', title: t('unstableHint', r.slow, r.setup.length, num(r.best)) }, t('unstable')) : null
 	]));
+}
+
+// The server's last 24 hours as 48 half-hour bars (up, partly down, down,
+// not measured) and its share of answered checks over the week.
+function uptimeStrip(id) {
+	var u = S.uptime && S.uptime[id];
+	if (!u || id.indexOf('auto') === 0 || !u.marks) return null;
+	var per = Math.round(1800 / u.step), want = 48 * per;
+	var m = u.marks.slice(-want);
+	while (m.length < want) m = '-' + m;
+	var bars = [];
+	for (var i = 0; i < 48; i++) {
+		var chunk = m.substr(i * per, per), up = (chunk.match(/u/g) || []).length, down = (chunk.match(/d/g) || []).length;
+		bars.push(h('i', { 'data-s': up + down === 0 ? 'n' : down === 0 ? 'u' : up === 0 ? 'd' : 'p' }));
+	}
+	return h('span', { 'class': 'fgz-uptime', dir: 'ltr', title: t('uptimeHint') }, [
+		h('span', { 'class': 'bars' }, bars),
+		h('small', { 'class': 'num' }, u.pct >= 0 ? t('uptimePct', num(u.pct)) : t('uptimeNone'))
+	]);
 }
 
 // Speed tests run one server at a time: in parallel they would share the
@@ -1440,6 +1473,57 @@ function dialogSub() {
 
 /* ---------- routing */
 
+// The site doctor: a site that does not open, tried directly and through
+// every server, with the rule that fixes it one press away.
+function siteDoctor() {
+	var input = h('input', { type: 'search', dir: 'auto', placeholder: t('doctorPh'), 'aria-label': t('doctorPh'),
+		value: S.doctorSite || '', onkeydown: function(e) { if (e.key === 'Enter') { e.preventDefault(); go.click(); } } });
+	var go = h('button', { 'class': 'fgz-btn primary', onclick: function() {
+		if (!input.value.trim()) { input.focus(); return; }
+		if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
+		S.doctorSite = input.value;
+		go.textContent = t('testing');
+		busy(go, api('POST', '/api/doctor', { site: input.value }).then(function(r) { S.doctor = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); go.textContent = t('doctorGo'); }));
+	} }, t('doctorGo'));
+	var r = S.doctor;
+	var kids = [h('div', { 'class': 'fgz-bar' }, [h('div', { 'class': 'grow', style: 'min-width:0' }, input), go])];
+	if (r) {
+		kids.push(h('div', { 'class': 'fgz-doctor' }, r.paths.map(function(p) {
+			var what = p.ok ? (p.detail === 'challenge' ? t('drChallenge') : t('drOpens'))
+				: p.detail === 'sanctioned' ? t('drSanctioned')
+				: p.problem === 'filtered' ? t('drFilteredDns')
+				: p.problem === 'refused' ? (p.detail === 'country' ? t('drCountry') : t('drRefused', p.status))
+				: (p.problem === 'reset' || p.problem === 'timeout') && p.detail === 'sni' ? t('drFilteredSni')
+				: p.problem === 'timeout' ? t('drTimeout') : p.problem === 'tls' ? t('drTls') : p.problem === 'dns' ? t('drDns')
+				: (p.detail || t('drError'));
+			return h('div', { 'class': 'fgz-drow', 'data-ok': p.ok ? '1' : '0' }, [
+				h('span', { 'class': 'dot' }),
+				h('b', { dir: 'auto' }, p.path === 'direct' ? t('directPath') : p.name),
+				h('small', {}, what),
+				h('small', { 'class': 'num', dir: 'ltr' }, p.ok && p.ms ? num(p.ms) + ' ms' : '')
+			]);
+		})));
+		var target = r.suggest, label = target === 'direct' ? t('directPath') : target === 'proxy' ? t('toProxy')
+			: (S.nodes.filter(function(n) { return n.id === target; })[0] || {}).name;
+		var why = r.why === 'direct-works' ? t('drWhyDirect', r.domain) : r.why === 'only-tunnel' ? t('drWhyTunnel', r.domain)
+			: r.why === 'only-some' ? t('drWhySome', r.domain, label) : t('drWhyNothing', r.domain);
+		kids.push(h('div', { 'class': 'fgz-dsuggest', 'data-why': r.why }, present([
+			h('p', {}, present([why, r.sanctioned ? ' ' + t('drWhySanctioned') : null])),
+			// No rule means the tunnel already: a rule saying so would change nothing.
+			target && r.current !== target && !(target === 'proxy' && !r.current) ? h('button', { 'class': 'fgz-btn primary', onclick: function(e) {
+				busy(e.currentTarget, api('POST', '/api/doctor/apply', { site: r.domain, target: target }).then(function() {
+					r.current = target; toast(t('drApplied', r.domain, label));
+					return api('GET', '/api/rules').then(function(x) { S.rules = x; renderPanel(); });
+				}).catch(function(err) { toast(err.message); }));
+			} }, t('drApply', label)) : target ? h('small', {}, t('drAlready')) : null
+		])));
+	}
+	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, t('doctor')), h('div', { 'class': 'fgz-panel' }, [
+		h('p', { 'class': 'fgz-help', style: 'padding:14px 18px 0' }, t('doctorHint'))
+	].concat(kids))]);
+}
+
 function panelRules() {
 	var s = S.settings || {};
 	var toggles = h('div', { 'class': 'fgz-panel fgz-section' }, [
@@ -1490,7 +1574,7 @@ function panelRules() {
 		h('p', { 'class': 'fgz-help' }, t('rulesHelp'))
 	].concat(list.length ? list : [h('div', { 'class': 'fgz-empty' }, t('noRules'))]));
 
-	return h('div', {}, [toggles, custom]);
+	return h('div', {}, [siteDoctor(), toggles, custom]);
 }
 
 /* ---------- settings */
@@ -1583,7 +1667,8 @@ function panelSettings() {
 			inputField('test_interval', t('testInterval'), null, 'number', int),
 			inputField('tolerance', t('tolerance'), t('toleranceHint'), 'number', int),
 			switchField('keep_warm', t('keepWarm'), t('keepWarmHint')),
-			switchField('auto_rescue', t('autoRescue'), t('autoRescueHint'))
+			switchField('auto_rescue', t('autoRescue'), t('autoRescueHint')),
+			switchField('smart_auto', t('smartAuto'), t('smartAutoHint'))
 		]),
 		section(t('sDns'), [
 			inputField('remote_dns', t('remoteDns'), 'https://1.1.1.1/dns-query'),
