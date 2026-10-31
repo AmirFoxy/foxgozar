@@ -74,6 +74,9 @@ var T = {
 		keepWarm: 'Keep core ready', keepWarmHint: 'Connect takes under a second; uses about 40 MB of memory',
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
+		speedTest: 'Speed test', speedAll: 'Test speed', speedAllHint: 'Download speed and connection steadiness of every server, one by one. Uses up to 25 MB of each server’s traffic.', speedTesting: 'Testing {0} of {1}…', speedDone: 'Speed test done',
+		speedHint: 'Download speed through this server', speedFailed: 'no download', unstable: 'unsteady',
+		unstableHint: '{0} of {1} new connections were slow or failed (best {2} ms): pages and apps sometimes hang for seconds. Usually the server’s network or filtering, not this router.',
 		quick: 'Quick settings', qServer: 'Server', qAuto: 'Automatic', qManual: 'Manual', qIran: 'Iranian sites', qDirect: 'Direct', qTunnel: 'Tunnel', on: 'On', off: 'Off',
 		cConn: 'Connected for', cMemory: 'Core memory', cBest: 'Best server', cAvg: 'Average', cTraffic: 'Traffic', cNow: 'Now', cTotal: 'Total',
 		cSub: 'Subscription', cQuota: 'Used', cServers: 'Servers', cWorking: 'Answering',
@@ -164,6 +167,9 @@ var T = {
 		keepWarm: 'هسته آماده بماند', keepWarmHint: 'اتصال زیر یک ثانیه؛ حدود ۴۰ مگابایت رم',
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
+		speedTest: 'تست سرعت', speedAll: 'تست سرعت', speedAllHint: 'سرعت دانلود و پایداری اتصال همه سرورها، یکی‌یکی. از هر سرور تا ۲۵ مگابایت حجم مصرف می‌کند.', speedTesting: 'تست {0} از {1}…', speedDone: 'تست سرعت تمام شد',
+		speedHint: 'سرعت دانلود از این سرور', speedFailed: 'دانلود نشد', unstable: 'ناپایدار',
+		unstableHint: '{0} از {1} اتصال جدید کند بودند یا وصل نشدند (بهترین {2} میلی‌ثانیه): صفحه‌ها و برنامه‌ها گاهی چند ثانیه گیر می‌کنند. معمولاً از شبکه سرور یا فیلترینگ است، نه این روتر.',
 		quick: 'دسترسی سریع', qServer: 'سرور', qAuto: 'خودکار', qManual: 'دستی', qIran: 'سایت‌های ایرانی', qDirect: 'مستقیم', qTunnel: 'از تونل', on: 'روشن', off: 'خاموش',
 		cConn: 'مدت اتصال', cMemory: 'رم هسته', cBest: 'بهترین سرور', cAvg: 'میانگین', cTraffic: 'ترافیک', cNow: 'الان', cTotal: 'کل',
 		cSub: 'اشتراک', cQuota: 'مصرف', cServers: 'سرورها', cWorking: 'جواب می‌دهند',
@@ -294,6 +300,7 @@ function busy(btn, p) {
 }
 
 var ICON = {
+	gauge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18a9 9 0 1 1 16 0"/><path d="m12 14 4-5"/></svg>',
 	clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
 	power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>',
 	bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
@@ -546,7 +553,7 @@ function renderTabs() {
 function loadTab() {
 	var p;
 	switch (S.tab) {
-	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; }); break;
+	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services'), api('GET', '/api/speedtest')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; S.speed2 = r[3]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
 	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
@@ -581,6 +588,7 @@ function panelNodes() {
 		h('button', { 'class': 'fgz-btn primary', onclick: dialogAdd }, t('add')),
 		testAllBtn(),
 		servicesBtn(),
+		speedAllBtn(),
 		h('button', { 'class': 'fgz-btn danger', onclick: function(e) {
 			busy(e.currentTarget, api('POST', '/api/nodes/delete', { failed: true }).then(function(r) {
 				toast(t('removed', r.deleted || 0)); return loadTab();
@@ -639,7 +647,7 @@ function row(id, name, sub, delay, checked, live) {
 		onkeydown: function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(id); } }
 	}, [
 		h('span', { 'class': 'dot' }),
-		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: id.indexOf('auto') === 0 ? 'auto' : 'ltr' }, sub) : null, serviceChips(id)]),
+		h('div', { 'class': 'name' }, [h('b', { 'class': live ? 'live' : null, dir: 'auto' }, name), sub ? h('small', { dir: id.indexOf('auto') === 0 ? 'auto' : 'ltr' }, sub) : null, serviceChips(id), speedLine(id)]),
 		id.indexOf('auto') === 0 || !delayText ? h('span') : h('span', { 'class': 'fgz-delay num', 'data-q': q, dir: delay > 0 ? 'ltr' : null }, delayText),
 		id.indexOf('auto') === 0 ? h('span') : h('span', { style: 'display:flex' }, [
 			h('button', { 'class': 'fgz-icon', title: t('test'), 'aria-label': t('test'), onclick: function(e) {
@@ -650,6 +658,10 @@ function row(id, name, sub, delay, checked, live) {
 					renderPanel();
 				}));
 			} }, [icon('bolt')]),
+			h('button', { 'class': 'fgz-icon', title: t('speedTest'), 'aria-label': t('speedTest'), onclick: function(e) {
+				e.stopPropagation();
+				runSpeed([id], e.currentTarget);
+			} }, [icon('gauge')]),
 			h('button', { 'class': 'fgz-icon', title: t('share'), 'aria-label': t('share'), onclick: function(e) {
 				e.stopPropagation();
 				showShare(id, name);
@@ -661,6 +673,41 @@ function row(id, name, sub, delay, checked, live) {
 		])
 	]);
 	return el;
+}
+
+// The last speed test: download speed, and a warning when new connections
+// to the server come up unsteadily (some take seconds).
+function speedLine(id) {
+	var r = S.speed2 && S.speed2[id];
+	if (!r || id.indexOf('auto') === 0) return null;
+	return h('span', { 'class': 'fgz-svcs', dir: 'ltr' }, present([
+		h('span', { 'class': 'fgz-svc', 'data-ok': r.mbps > 0 ? '1' : '0', title: t('speedHint') },
+			r.mbps > 0 ? num(Math.round(r.mbps * 10) / 10) + ' Mbps' : t('speedFailed')),
+		r.unstable ? h('span', { 'class': 'fgz-svc', 'data-ok': '0', title: t('unstableHint', r.slow, r.setup.length, num(r.best)) }, t('unstable')) : null
+	]));
+}
+
+// Speed tests run one server at a time: in parallel they would share the
+// line and each look slower than it is.
+function runSpeed(ids, btn) {
+	if (!S.status || S.status.phase !== 'connected') { toast(t('connectFirst')); return; }
+	S.speed2 = S.speed2 || {};
+	var label = btn.textContent, i = 0;
+	var next = function() {
+		if (i >= ids.length) return Promise.resolve();
+		var id = ids[i++];
+		if (ids.length > 1) btn.textContent = t('speedTesting', i, ids.length);
+		return api('POST', '/api/speedtest/' + id).then(function(r) { S.speed2[id] = r; renderPanel(); })
+			.catch(function(err) { toast(err.message); }).then(next);
+	};
+	busy(btn, next().then(function() { if (ids.length > 1) { btn.textContent = label; toast(t('speedDone')); } }));
+}
+
+function speedAllBtn() {
+	var b = h('button', { 'class': 'fgz-btn', title: t('speedAllHint'), onclick: function() {
+		runSpeed(S.nodes.map(function(n) { return n.id; }), b);
+	} }, t('speedAll'));
+	return b;
 }
 
 // Which of the usual sites a server opens, from the last service test.

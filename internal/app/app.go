@@ -57,6 +57,7 @@ type App struct {
 	share            *core.Process
 	shareUse         *shareUsage
 	iranKey          string // what the dual-WAN Iran routes hold now
+	speed            *speedTests
 	services         *ServiceResults
 	games            *GameResults
 }
@@ -64,7 +65,8 @@ type App struct {
 func New(p Paths, st *state.Store) *App {
 	a := &App{Paths: p, Store: st, Log: core.NewRing(800), phase: Stopped, since: time.Now(),
 		delays: map[string]int{}, busy: map[string]bool{}, dev: newDevStats(),
-		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}}}
+		shareUse: &shareUsage{conns: map[string][3]int64{}, pending: map[string][2]int64{}, open: map[string]int{}, rate: map[string][2]float64{}},
+		speed:    &speedTests{res: map[string]SpeedResult{}}}
 	for i := 0; i < maxSlots; i++ {
 		a.slots = append(a.slots, a.newSlot(i))
 	}

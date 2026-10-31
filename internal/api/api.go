@@ -91,6 +91,8 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/core/{kind}/update", s.coreUpdate)
 	h("POST /api/rulesets/update", s.rulesetUpdate)
 	h("GET /api/config", s.config)
+	h("GET /api/speedtest", s.speedResults)
+	h("POST /api/speedtest/{id}", s.speedTest)
 	h("GET /api/sharing", s.shareServer)
 	h("PUT /api/sharing", s.putShareServer)
 	h("POST /api/sharing/users", s.addShareUser)
@@ -885,6 +887,14 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]string{"link": n.Link}, nil // the link alone still helps
 	}
 	return map[string]string{"link": n.Link, "svg": svg}, nil
+}
+
+func (s *Server) speedResults(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.SpeedResults(), nil
+}
+
+func (s *Server) speedTest(w http.ResponseWriter, r *http.Request) (any, error) {
+	return s.App.SpeedTest(r.Context(), r.PathValue("id"))
 }
 
 func (s *Server) shareServer(w http.ResponseWriter, r *http.Request) (any, error) {
