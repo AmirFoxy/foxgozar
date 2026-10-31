@@ -95,6 +95,8 @@ type GameResults struct {
 	Routes   map[string]string `json:"routes,omitempty"`
 	Routable map[string]bool   `json:"routable"`
 	Hidden   []string          `json:"hidden,omitempty"`
+	// The last automatic "is the game server reachable directly" check.
+	Checks map[string]DirectCheck `json:"checks,omitempty"`
 }
 
 // TestGames measures every region through every server, eight at a time,
@@ -170,6 +172,10 @@ func (a *App) LastGames() GameResults {
 	out.Games = allGames(st)
 	out.Hidden = st.HiddenGames
 	out.Routes, out.Routable = st.GameRoutes, map[string]bool{}
+	out.Checks = map[string]DirectCheck{}
+	for k, v := range a.directChecks { // a.mu is held here
+		out.Checks[k] = v
+	}
 	for id := range gen.GamePorts {
 		out.Routable[id] = true
 	}

@@ -64,6 +64,7 @@ type App struct {
 	gaming           bool                            // a game is being played: background jobs wait
 	gameSeen         map[string]map[string]time.Time // game -> its servers seen in play
 	artTried         map[int]bool                    // Steam ids whose pictures were looked up this run
+	directChecks     map[string]DirectCheck          // the last automatic direct check, by game
 	usage            *usageCounter
 	services         *ServiceResults
 	games            *GameResults

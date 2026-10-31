@@ -176,6 +176,9 @@ type Settings struct {
 	// Game downloads (Steam, Epic, Battle.net, Riot) go direct: they are
 	// huge, and spare the server's traffic and speed.
 	GameDownloadsDirect bool `json:"game_downloads_direct"`
+	// After a match, a game whose own servers answer directly and faster
+	// than the tunnel is switched to direct for the next one.
+	AutoDirectGames bool `json:"auto_direct_games"`
 
 	AntiLag  bool `json:"anti_lag"`
 	DownMbps int  `json:"down_mbps,omitempty"`

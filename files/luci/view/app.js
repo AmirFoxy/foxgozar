@@ -76,6 +76,7 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		autoDirect: 'Games go direct by themselves when better', autoDirectHint: 'After every match FoxGozar checks whether that game’s own servers answer directly and faster than the tunnel, and shows it on its card. With this on, such a game plays direct from its next match; its launcher stays on the tunnel. Never changes during a match.',
 		moreCities: '+{0} more cities', notRoutable: 'This game’s match traffic cannot be told apart from the rest, so it follows the tunnel.',
 		searchGamesPh: 'Search a game to add…', searching: 'Searching…', noGameFound: 'Nothing found', inList: 'on the list', restoreGame: 'bring back', addThis: 'add',
 		removeGame: 'Remove from the list', removeGameAsk: 'Press again to remove {0}',
@@ -186,6 +187,7 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		autoDirect: 'بازی‌ها خودکار مستقیم شوند وقتی بهتر است', autoDirectHint: 'بعد از هر بازی، فاکس‌گذر بررسی می‌کند که سرورهای خود آن بازی مستقیم و سریع‌تر از تونل جواب می‌دهند یا نه، و روی کارتش نشان می‌دهد. با روشن بودن این گزینه، آن بازی از بازی بعد مستقیم می‌رود؛ لانچرش از تونل می‌ماند. وسط بازی هیچ‌وقت عوض نمی‌شود.',
 		moreCities: '+{0} شهر دیگر', notRoutable: 'ترافیک بازی این بازی از بقیه قابل تشخیص نیست، پس از تونل می‌رود.',
 		searchGamesPh: 'جستجوی بازی برای افزودن…', searching: 'در حال جستجو…', noGameFound: 'چیزی پیدا نشد', inList: 'در لیست است', restoreGame: 'برگرداندن', addThis: 'افزودن',
 		removeGame: 'حذف از لیست', removeGameAsk: 'برای حذف {0} دوباره بزنید',
@@ -1204,6 +1206,7 @@ function panelGames() {
 	} }, conns.length ? t('retestGames') : t('testGames'));
 	var head = h('div', { 'class': 'fgz-panel fgz-section' }, [
 		h('div', { 'class': 'fgz-bar' }, [h('p', { 'class': 'grow fgz-note', style: 'margin:0;padding:0' }, t('gamesNote')), btn]),
+		switchField('auto_direct_games', t('autoDirect'), t('autoDirectHint')),
 		gameSearch()
 	]);
 
@@ -1274,7 +1277,8 @@ function gameCard(game, g, conns, names) {
 // Is the game's own server reachable without the tunnel, and faster? Some
 // games block their launcher in Iran but not their servers.
 function directCheck(game) {
-	var r = (S.directCheck || {})[game.id];
+	// The one asked for now, or the automatic one from after the last match.
+	var r = (S.directCheck || {})[game.id] || ((S.games || {}).checks || {})[game.id];
 	var line = null;
 	if (r) {
 		var text = r.advice === 'play-first' ? t('playFirst')

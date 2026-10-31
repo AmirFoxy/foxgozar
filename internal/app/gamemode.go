@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os/exec"
 	"sort"
@@ -239,6 +240,56 @@ func (a *App) quietForGame(ctx context.Context) bool {
 		a.Log.Add("foxgozar", "a game is on: background updates wait until it ends")
 	} else if changed {
 		a.Log.Add("foxgozar", "game over: background updates resume")
+		go a.afterMatch(context.Background())
 	}
 	return on
+}
+
+// afterMatch checks, for every game whose servers were seen, whether those
+// servers answer directly and faster than the tunnel. The result shows on
+// the game's card; with AutoDirectGames, a game that is better direct is
+// switched to direct for its next match (never during one: that would
+// drop it).
+func (a *App) afterMatch(ctx context.Context) {
+	a.mu.Lock()
+	var games []string
+	for id, seen := range a.gameSeen {
+		if len(seen) > 0 {
+			games = append(games, id)
+		}
+	}
+	a.mu.Unlock()
+	sort.Strings(games)
+	st := a.Store.View()
+	for _, id := range games {
+		r, err := a.CheckGameDirect(ctx, id)
+		if err != nil {
+			continue
+		}
+		a.mu.Lock()
+		if a.directChecks == nil {
+			a.directChecks = map[string]DirectCheck{}
+		}
+		a.directChecks[id] = r
+		a.mu.Unlock()
+		if r.Advice == "direct" && st.Settings.AutoDirectGames && st.GameRoutes[id] == "" {
+			if err := a.SetGameRoute(ctx, id, DirectPath); err == nil {
+				a.Log.Add("foxgozar", fmt.Sprintf("%s: its servers answer directly in %d ms (tunnel %d ms); its matches now go direct, the launcher stays on the tunnel",
+					id, r.BestDirect, r.BestTunnel))
+			}
+		} else if r.Advice == "direct" {
+			a.Log.Add("foxgozar", fmt.Sprintf("%s: its servers answer directly in %d ms, faster than the tunnel (%d ms); see its card", id, r.BestDirect, r.BestTunnel))
+		}
+	}
+}
+
+// DirectChecks are the last automatic checks, by game.
+func (a *App) DirectChecks() map[string]DirectCheck {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := map[string]DirectCheck{}
+	for k, v := range a.directChecks {
+		out[k] = v
+	}
+	return out
 }
