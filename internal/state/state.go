@@ -185,21 +185,6 @@ type State struct {
 	Devices  []Device       `json:"devices"`
 	Warp     *Warp          `json:"warp,omitempty"`
 	Share    *Share         `json:"share,omitempty"`
-	Psiphon  *Psiphon       `json:"psiphon,omitempty"`
-}
-
-// Psiphon sends chosen domains out of another country through Psiphon,
-// while everything else (logins included) stays on the user's own server.
-// For things that depend on the viewer's country, like music in Instagram
-// videos. Psiphon needs a config issued by Psiphon Inc.; FoxGozar supplies
-// none, the user pastes their own.
-type Psiphon struct {
-	Enabled bool     `json:"enabled"`
-	Region  string   `json:"region"`  // two-letter country code, "" = any
-	Config  string   `json:"config"`  // the user's Psiphon config, a JSON object
-	Domains []string `json:"domains"` // suffix match
-	// Psiphon itself connects through the tunnel instead of on its own.
-	ViaTunnel bool `json:"via_tunnel"`
 }
 
 // Share is a server on the router that people elsewhere connect to, so

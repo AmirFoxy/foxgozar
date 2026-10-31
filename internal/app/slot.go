@@ -88,16 +88,15 @@ func (a *App) clientFor(sl *slot) *clash.Client {
 
 func (a *App) envFor(st state.State, sl *slot) gen.Env {
 	return gen.Env{
-		RuleDir:     a.RuleDir(),
-		CacheFile:   filepath.Join(a.Paths.Run, fmt.Sprintf("cache-%d.db", sl.id)),
-		Secret:      st.Token,
-		TProxyPort:  sl.tproxy(st.Settings),
-		DNSPort:     sl.dns(st.Settings),
-		ClashPort:   sl.clashPort(st.Settings),
-		XrayBase:    sl.xrayBase(),
-		ProbePort:   sl.probePort(st.Settings),
-		ISPDNS:      ispDNS(),
-		PsiphonPort: a.psiphonPort(),
+		RuleDir:    a.RuleDir(),
+		CacheFile:  filepath.Join(a.Paths.Run, fmt.Sprintf("cache-%d.db", sl.id)),
+		Secret:     st.Token,
+		TProxyPort: sl.tproxy(st.Settings),
+		DNSPort:    sl.dns(st.Settings),
+		ClashPort:  sl.clashPort(st.Settings),
+		XrayBase:   sl.xrayBase(),
+		ProbePort:  sl.probePort(st.Settings),
+		ISPDNS:     ispDNS(),
 	}
 }
 

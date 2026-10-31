@@ -91,9 +91,6 @@ func (s *Server) Handler() http.Handler {
 	h("POST /api/core/{kind}/update", s.coreUpdate)
 	h("POST /api/rulesets/update", s.rulesetUpdate)
 	h("GET /api/config", s.config)
-	h("GET /api/psiphon", s.psiphon)
-	h("PUT /api/psiphon", s.putPsiphon)
-	h("POST /api/psiphon/test", s.psiphonTest)
 	h("GET /api/sharing", s.shareServer)
 	h("PUT /api/sharing", s.putShareServer)
 	h("POST /api/sharing/users", s.addShareUser)
@@ -726,7 +723,6 @@ type Backup struct {
 	Devices  []state.Device       `json:"devices"`
 	Warp     *state.Warp          `json:"warp,omitempty"`
 	Share    *state.Share         `json:"share,omitempty"`
-	Psiphon  *state.Psiphon       `json:"psiphon,omitempty"`
 }
 
 const backupApp = "foxgozar"
@@ -734,7 +730,7 @@ const backupApp = "foxgozar"
 func (s *Server) backup(w http.ResponseWriter, r *http.Request) (any, error) {
 	st := s.App.Store.View()
 	b := Backup{App: backupApp, Exported: time.Now().Unix(), Settings: st.Settings, Nodes: st.Nodes,
-		Subs: st.Subs, Rules: st.Rules, Devices: st.Devices, Warp: st.Warp, Share: st.Share, Psiphon: st.Psiphon}
+		Subs: st.Subs, Rules: st.Rules, Devices: st.Devices, Warp: st.Warp, Share: st.Share}
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="foxgozar-backup-%s.json"`, time.Now().Format("2006-01-02")))
 	return b, nil
 }
@@ -764,7 +760,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) (any, error) {
 	err := s.App.Store.Update(func(st *state.State) error {
 		merged.Enabled = st.Settings.Enabled
 		st.Settings = merged
-		st.Nodes, st.Subs, st.Rules, st.Devices, st.Warp, st.Share, st.Psiphon = b.Nodes, b.Subs, b.Rules, b.Devices, b.Warp, b.Share, b.Psiphon
+		st.Nodes, st.Subs, st.Rules, st.Devices, st.Warp, st.Share = b.Nodes, b.Subs, b.Rules, b.Devices, b.Warp, b.Share
 		if st.Nodes == nil {
 			st.Nodes = []state.Node{}
 		}
@@ -790,7 +786,6 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err := s.App.SyncShare(); err != nil {
 		s.App.Log.Add("foxgozar", "sharing: "+err.Error())
 	}
-	_ = s.App.SetPsiphon(app.PsiphonPatch{}) // applies what was restored
 	return map[string]int{"nodes": len(b.Nodes), "subscriptions": len(b.Subs), "rules": len(b.Rules), "devices": len(b.Devices)},
 		s.App.Apply(context.Background())
 }
@@ -890,29 +885,6 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) (any, error) {
 		return map[string]string{"link": n.Link}, nil // the link alone still helps
 	}
 	return map[string]string{"link": n.Link, "svg": svg}, nil
-}
-
-func (s *Server) psiphon(w http.ResponseWriter, r *http.Request) (any, error) {
-	return s.App.PsiphonStatus(), nil
-}
-
-func (s *Server) putPsiphon(w http.ResponseWriter, r *http.Request) (any, error) {
-	var p app.PsiphonPatch
-	if err := decode(r, &p); err != nil {
-		return nil, err
-	}
-	if err := s.App.SetPsiphon(p); err != nil {
-		return nil, err
-	}
-	return s.App.PsiphonStatus(), nil
-}
-
-func (s *Server) psiphonTest(w http.ResponseWriter, r *http.Request) (any, error) {
-	ip, err := s.App.PsiphonExitIP(r.Context())
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{"ip": ip}, nil
 }
 
 func (s *Server) shareServer(w http.ResponseWriter, r *http.Request) (any, error) {

@@ -75,17 +75,6 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		quick: 'Quick settings', qServer: 'Server', qAuto: 'Automatic', qManual: 'Manual', qIran: 'Iranian sites', qDirect: 'Direct', qTunnel: 'Tunnel', on: 'On', off: 'Off',
-		sPsiphon: 'Another country for chosen sites', psiphon: 'Through Psiphon',
-		psiphonHint: 'Only the sites listed below go out of the chosen country through Psiphon (free); everything else, your logins included, stays on your own server. For things that depend on your country, like music in Instagram videos. Whether a site changes its behaviour this way is up to that site.',
-		anyCountry: 'Any country', psiNoBuild: 'Psiphon has no build for this router (it exists for x86_64, arm64 and armv7)',
-		psiDownloading: 'Downloading Psiphon (about 34 MB)…', psiConnecting: 'Connecting to Psiphon… meanwhile these sites use the tunnel',
-		psiConnected: 'Connected, exit {0}', psiExitIP: 'Sites see {0}', psiCheck: 'Check exit',
-		psiCountry: 'Exit country', psiCountryHint: 'Psiphon picks the country only, not the city',
-		psiDomains: 'Sites', psiDomainsHint: 'Domains, separated by commas; each covers its subdomains',
-		psiPresetMusic: 'Instagram music',
-		psiConfig: 'Psiphon config', psiConfigHint: 'Psiphon needs a config of yours (a JSON with PropagationChannelId and SponsorId), issued by Psiphon Inc. FoxGozar has none of its own.',
-		psiConfigSaved: 'Saved. It is not shown again; paste a new one to replace it.', psiReplace: 'Replace',
-		psiVia: 'Psiphon through the tunnel', psiViaHint: 'Psiphon connects through your server instead of on its own: use it if your internet blocks Psiphon',
 		cConn: 'Connected for', cMemory: 'Core memory', cBest: 'Best server', cAvg: 'Average', cTraffic: 'Traffic', cNow: 'Now', cTotal: 'Total',
 		cSub: 'Subscription', cQuota: 'Used', cServers: 'Servers', cWorking: 'Answering',
 		sSharing: 'Share this router’s internet', sharing: 'Sharing server',
@@ -176,17 +165,6 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		quick: 'دسترسی سریع', qServer: 'سرور', qAuto: 'خودکار', qManual: 'دستی', qIran: 'سایت‌های ایرانی', qDirect: 'مستقیم', qTunnel: 'از تونل', on: 'روشن', off: 'خاموش',
-		sPsiphon: 'کشور دیگر برای سایت‌های خاص', psiphon: 'از طریق Psiphon',
-		psiphonHint: 'فقط سایت‌های پایین از کشور انتخابی و از طریق Psiphon (رایگان) می‌روند؛ بقیه، از جمله لاگین‌هایتان، روی سرور خودتان می‌مانند. برای چیزهایی که به کشور شما بستگی دارند، مثل آهنگ ویدیوهای اینستاگرام. اینکه یک سایت با این کار رفتارش عوض شود یا نه، دست خود آن سایت است.',
-		anyCountry: 'هر کشوری', psiNoBuild: 'Psiphon برای این روتر نسخه‌ای ندارد (برای x86_64، arm64 و armv7 هست)',
-		psiDownloading: 'در حال دانلود Psiphon (حدود ۳۴ مگابایت)…', psiConnecting: 'در حال اتصال به Psiphon… تا آن موقع این سایت‌ها از تونل می‌روند',
-		psiConnected: 'وصل است، خروجی {0}', psiExitIP: 'سایت‌ها این را می‌بینند: {0}', psiCheck: 'بررسی خروجی',
-		psiCountry: 'کشور خروجی', psiCountryHint: 'Psiphon فقط کشور را انتخاب می‌کند، نه شهر را',
-		psiDomains: 'سایت‌ها', psiDomainsHint: 'دامنه‌ها را با کاما جدا کنید؛ هر دامنه زیردامنه‌هایش را هم شامل می‌شود',
-		psiPresetMusic: 'آهنگ اینستاگرام',
-		psiConfig: 'کانفیگ Psiphon', psiConfigHint: 'Psiphon یک کانفیگ مال خودتان لازم دارد (یک JSON با PropagationChannelId و SponsorId) که Psiphon Inc. صادر می‌کند. فاکس‌گذر خودش کانفیگی ندارد.',
-		psiConfigSaved: 'ذخیره شده. دوباره نشان داده نمی‌شود؛ برای عوض کردن، یک کانفیگ جدید بچسبانید.', psiReplace: 'جایگزینی',
-		psiVia: 'Psiphon از داخل تونل', psiViaHint: 'Psiphon به‌جای اتصال مستقیم از طریق سرور شما وصل می‌شود: اگر اینترنتتان Psiphon را می‌بندد از این استفاده کنید',
 		cConn: 'مدت اتصال', cMemory: 'رم هسته', cBest: 'بهترین سرور', cAvg: 'میانگین', cTraffic: 'ترافیک', cNow: 'الان', cTotal: 'کل',
 		cSub: 'اشتراک', cQuota: 'مصرف', cServers: 'سرورها', cWorking: 'جواب می‌دهند',
 		sSharing: 'اشتراک اینترنت این روتر', sharing: 'سرور اشتراک‌گذاری',
@@ -570,7 +548,7 @@ function loadTab() {
 	switch (S.tab) {
 	case 'nodes': p = Promise.all([api('GET', '/api/nodes'), api('GET', '/api/subs'), api('GET', '/api/services')]).then(function(r) { S.nodes = r[0]; S.subs = r[1]; S.services = r[2]; }); break;
 	case 'subs': p = api('GET', '/api/subs').then(function(r) { S.subs = r; }); break;
-	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes'), api('GET', '/api/psiphon')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; S.psiphon = r[2]; }); break;
+	case 'rules': p = Promise.all([api('GET', '/api/rules'), api('GET', '/api/nodes')]).then(function(r) { S.rules = r[0]; S.nodes = r[1]; }); break;
 	case 'settings': p = Promise.all([api('GET', '/api/core'), api('GET', '/api/warp')]).then(function(r) { S.cores = r[0]; S.warp = r[1]; }); break;
 	case 'share': p = api('GET', '/api/sharing').then(function(r) { S.sharing = r; }); break;
 	case 'network': p = api('GET', '/api/devices').then(function(r) { S.devices = r; }); break;
@@ -1241,92 +1219,7 @@ function panelRules() {
 		h('p', { 'class': 'fgz-help' }, t('rulesHelp'))
 	].concat(list.length ? list : [h('div', { 'class': 'fgz-empty' }, t('noRules'))]));
 
-	return h('div', {}, [toggles, custom, psiphonSection()]);
-}
-
-/* ---------- another country for chosen domains (Psiphon) */
-
-var PSI_PRESETS = { music: ['cdninstagram.com', 'fbcdn.net'] };
-
-function countryName(code) {
-	if (!code) return t('anyCountry');
-	try { return new Intl.DisplayNames([lang], { type: 'region' }).of(code) + ' (' + code + ')'; } catch (e) { return code; }
-}
-
-function psiphonSection() {
-	var p = S.psiphon;
-	if (!p) return h('div');
-	var put = function(body, el) {
-		var pr = api('PUT', '/api/psiphon', body).then(function(r) { S.psiphon = r; renderPanel(); })
-			.catch(function(err) { toast(err.message); renderPanel(); });
-		if (el) busy(el, pr);
-		return pr;
-	};
-	var status;
-	if (!p.supported) status = t('psiNoBuild');
-	else if (!p.enabled) status = null;
-	else if (p.installing) status = t('psiDownloading');
-	else if (p.error) status = p.error;
-	else if (p.connected) status = t('psiConnected', countryName(p.exit_region || p.region));
-	else status = t('psiConnecting');
-
-	var domains = h('textarea', { 'class': 'ltr', rows: 2, spellcheck: 'false', style: 'min-height:0' }, (p.domains || []).join(', '));
-	var config = h('textarea', { 'class': 'ltr', rows: 3, spellcheck: 'false', style: 'min-height:0',
-		placeholder: '{"PropagationChannelId": "…", "SponsorId": "…", …}' });
-
-	return h('div', { 'class': 'fgz-section' }, [h('h3', {}, t('sPsiphon')), h('div', { 'class': 'fgz-panel' }, present([
-		h('div', { 'class': 'fgz-field' }, [
-			h('label', { 'for': 'fgz-psi' }, [t('psiphon'), h('small', {}, t('psiphonHint'))]),
-			h('input', { id: 'fgz-psi', type: 'checkbox', 'class': 'fgz-switch', checked: !!p.enabled, disabled: !p.supported,
-				onchange: function(e) { put({ enabled: e.target.checked }); } })
-		]),
-		status ? h('div', { 'class': 'fgz-field' }, [
-			h('label', {}, [h('span', { 'class': 'fgz-psi-state', 'data-on': p.connected ? '1' : '0' }, status),
-				p.exit_ip ? h('small', { 'class': 'num', dir: 'ltr' }, t('psiExitIP', p.exit_ip)) : null]),
-			p.connected ? h('button', { 'class': 'fgz-btn', onclick: function(e) {
-				busy(e.currentTarget, api('POST', '/api/psiphon/test').then(function(r) { S.psiphon.exit_ip = r.ip; renderPanel(); })
-					.catch(function(err) { toast(err.message); }));
-			} }, t('psiCheck')) : h('span')
-		]) : null,
-		h('div', { 'class': 'fgz-field' }, [
-			h('label', { 'for': 'fgz-psi-region' }, [t('psiCountry'), h('small', {}, t('psiCountryHint'))]),
-			h('select', { id: 'fgz-psi-region', onchange: function(e) { put({ region: e.target.value }); } }, (p.regions || []).map(function(c) {
-				return h('option', { value: c, selected: c === p.region }, countryName(c));
-			}))
-		]),
-		h('div', { 'class': 'fgz-field' }, [
-			h('label', {}, [t('psiDomains'), h('small', {}, t('psiDomainsHint'))]),
-			h('div', { style: 'display:grid;gap:8px' }, [
-				domains,
-				h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
-					h('button', { 'class': 'fgz-btn', onclick: function() { domains.value = PSI_PRESETS.music.join(', '); } }, t('psiPresetMusic')),
-					h('button', { 'class': 'fgz-btn primary', onclick: function(e) {
-						put({ domains: domains.value.split(/[,\s]+/).filter(Boolean) }, e.currentTarget).then(function() { toast(t('saved')); });
-					} }, t('save'))
-				])
-			])
-		]),
-		h('div', { 'class': 'fgz-field' }, [
-			h('label', {}, [t('psiConfig'), h('small', {}, p.has_config ? t('psiConfigSaved') : t('psiConfigHint'))]),
-			h('div', { style: 'display:grid;gap:8px' }, present([
-				config,
-				h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, present([
-					h('button', { 'class': 'fgz-btn primary', onclick: function(e) {
-						if (!config.value.trim()) { config.focus(); return; }
-						put({ config: config.value }, e.currentTarget).then(function() { toast(t('saved')); });
-					} }, p.has_config ? t('psiReplace') : t('save')),
-					p.has_config ? h('button', { 'class': 'fgz-btn danger', onclick: function(e) {
-						put({ config: '', enabled: false }, e.currentTarget);
-					} }, t('remove')) : null
-				]))
-			]))
-		]),
-		h('div', { 'class': 'fgz-field' }, [
-			h('label', { 'for': 'fgz-psi-via' }, [t('psiVia'), h('small', {}, t('psiViaHint'))]),
-			h('input', { id: 'fgz-psi-via', type: 'checkbox', 'class': 'fgz-switch', checked: !!p.via_tunnel,
-				onchange: function(e) { put({ via_tunnel: e.target.checked }); } })
-		])
-	]))]);
+	return h('div', {}, [toggles, custom]);
 }
 
 /* ---------- settings */
@@ -1708,9 +1601,6 @@ function tick() {
 		api('GET', '/api/warp').then(function(r) { S.warp = r; var el = document.getElementById('fgz-warp'); if (el) el.replaceChildren.apply(el, warpLine()); }).catch(function() {});
 	if (S.tab === 'network')
 		api('GET', '/api/devices').then(function(r) { S.devices = r; drawMap(); }).catch(function() {});
-	// Psiphon downloading or connecting: follow it until it is there.
-	if (S.tab === 'rules' && S.psiphon && S.psiphon.enabled && !S.psiphon.connected && !document.querySelector('.fgz textarea:focus, .fgz input:focus'))
-		api('GET', '/api/psiphon').then(function(r) { S.psiphon = r; if (r.connected || r.error) renderPanel(); else { var el = document.querySelector('.fgz-psi-state'); if (el) el.textContent = r.installing ? t('psiDownloading') : t('psiConnecting'); } }).catch(function() {});
 	if (S.tab === 'share' && !document.querySelector('.fgz-dialog[open], .fgz input:focus'))
 		api('GET', '/api/sharing').then(function(r) { S.sharing = r; renderPanel(); }).catch(function() {});
 	if (S.tab === 'devices' && !document.querySelector('.fgz-dev select:focus, .fgz-dialog[open]'))

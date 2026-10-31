@@ -711,8 +711,6 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 .fgz-guide { white-space: pre-line; font-size: 14px !important; background: var(--sunken); border-radius: var(--r-s); padding: 10px 12px !important; }
 .fgz-dev .acts { display: flex; gap: 2px; }
 .fgz-icon[data-on="1"] { color: var(--fox); }
-.fgz-psi-state { color: var(--fox-text); font-weight: 600; }
-.fgz-psi-state[data-on="1"] { color: var(--ok); }
 .fgz-help { margin: 0; padding: 0 18px 12px; color: var(--ink-3); font-size: 13px; font-weight: 400; }
 .fgz-help code { display: inline-block; unicode-bidi: isolate; white-space: nowrap; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
 .fgz-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
