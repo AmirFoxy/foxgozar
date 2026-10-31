@@ -76,6 +76,7 @@ var T = {
 		logLevel: 'Log detail', mirror: 'GitHub mirror', mirrorHint: 'Used when GitHub is unreachable',
 		coreBeta: 'Use beta cores',
 		thisMonth: 'this month {0}', cMonth: 'Servers this month', monthHint: 'Traffic through your servers this calendar month, kept across restarts. A close estimate, not your provider’s meter.',
+		moreCities: '+{0} more cities', notRoutable: 'This game’s match traffic cannot be told apart from the rest, so it follows the tunnel.',
 		searchGamesPh: 'Search a game to add…', searching: 'Searching…', noGameFound: 'Nothing found', inList: 'on the list', restoreGame: 'bring back', addThis: 'add',
 		removeGame: 'Remove from the list', removeGameAsk: 'Press again to remove {0}',
 		checkDirect: 'Check game server', checkDirectHint: 'Pings the servers this game was played on, outside the tunnel: is the game itself reachable directly, and faster?',
@@ -185,6 +186,7 @@ var T = {
 		logLevel: 'جزئیات گزارش', mirror: 'میرور GitHub', mirrorHint: 'وقتی GitHub در دسترس نیست',
 		coreBeta: 'هسته‌های بتا',
 		thisMonth: 'این ماه {0}', cMonth: 'مصرف سرورها این ماه', monthHint: 'ترافیک سرورهایتان در این ماه، که با ری‌استارت پاک نمی‌شود. تخمینی نزدیک است، نه شمارنده خود سرور.',
+		moreCities: '+{0} شهر دیگر', notRoutable: 'ترافیک بازی این بازی از بقیه قابل تشخیص نیست، پس از تونل می‌رود.',
 		searchGamesPh: 'جستجوی بازی برای افزودن…', searching: 'در حال جستجو…', noGameFound: 'چیزی پیدا نشد', inList: 'در لیست است', restoreGame: 'برگرداندن', addThis: 'افزودن',
 		removeGame: 'حذف از لیست', removeGameAsk: 'برای حذف {0} دوباره بزنید',
 		checkDirect: 'بررسی سرور بازی', checkDirectHint: 'سرورهایی را که این بازی رویشان اجرا شده، بیرون از تونل پینگ می‌کند: آیا خود بازی مستقیم در دسترس است و سریع‌تر؟',
@@ -1212,13 +1214,18 @@ function panelGames() {
 	]));
 }
 
-// One game, all of it on its card: picture, best ping, its servers as rows,
-// its own path and the direct check, and a bin to take it off the list.
+// One game, all of it on its card: the picture fills the card, the data
+// sits on frosted glass over it. Every card is the same size: the four
+// best cities are shown, the rest counted.
+var CARD_ROWS = 4;
 function gameCard(game, g, conns, names) {
+	var cities = game.servers.map(function(sv) { return { sv: sv, c: gameCity(g, conns, sv.region) }; });
 	var best = null;
-	var rows = game.servers.map(function(sv) {
-		var c = gameCity(g, conns, sv.region);
-		if (c && (!best || c.score < best.score)) best = c;
+	cities.forEach(function(x) { if (x.c && (!best || x.c.score < best.score)) best = x.c; });
+	// Best first; unmeasured or unreachable after, in their own order.
+	cities.sort(function(a, b) { return (a.c ? a.c.score : Infinity) - (b.c ? b.c.score : Infinity); });
+	var rows = cities.slice(0, CARD_ROWS).map(function(x) {
+		var c = x.c, sv = x.sv;
 		var q = pingQuality(c ? c.ms : -1);
 		return h('div', { 'class': 'fgz-grow', 'data-q': conns.length ? q[0] : 'none' }, [
 			h('span', { 'class': 'dot' }),
@@ -1233,7 +1240,7 @@ function gameCard(game, g, conns, names) {
 	});
 	var q = pingQuality(best ? best.ms : -1);
 	var art = gameArt(game);
-	var img = art ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
+	var img = art ? h('img', { 'class': 'bg', src: art, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }) : null;
 	if (img) img.addEventListener('error', function() { img.remove(); });
 	var bin = h('button', { 'class': 'fgz-icon bin', title: t('removeGame'), 'aria-label': t('removeGame'), onclick: function(e) {
 		var b = e.currentTarget;
@@ -1242,18 +1249,25 @@ function gameCard(game, g, conns, names) {
 			.catch(function(err) { toast(err.message); }));
 	} }, [icon('trash')]);
 	var routable = (g.routable || {})[game.id];
+	var more = cities.length - CARD_ROWS;
 	return h('article', { 'class': 'fgz-gcard', 'data-game': game.id, 'data-q': conns.length ? q[0] : 'none' }, present([
-		h('div', { 'class': 'art' }, present([
-			img, bin,
-			h('div', { 'class': 'title' }, present([
-				h('h4', { dir: 'ltr' }, game.name),
-				conns.length ? h('span', { 'class': 'ping num', dir: 'ltr' }, best ? num(best.ms) + ' ms' : '—') : null
-			]))
-		])),
-		game.id.indexOf('my') === 0 ? h('p', { 'class': 'fgz-help', style: 'padding:10px 14px 0' }, t('customGameHint')) : null,
-		h('div', { 'class': 'rows' }, rows),
-		routable ? gameRouteBar(game, g, conns, names, (g.routes || {})[game.id] || '') : null,
-		routable ? directCheck(game) : null
+		img,
+		h('div', { 'class': 'shade' }),
+		h('div', { 'class': 'content' }, present([
+			h('div', { 'class': 'top' }, present([
+				conns.length ? h('span', { 'class': 'ping num', dir: 'ltr' }, best ? num(best.ms) + ' ms' : '—') : h('span'),
+				bin
+			])),
+			h('h4', { dir: 'ltr' }, game.name),
+			h('div', { 'class': 'glass' }, present([
+				h('div', { 'class': 'rows' }, rows),
+				more > 0 ? h('small', { 'class': 'more' }, t('moreCities', more)) : null
+			])),
+			h('div', { 'class': 'gfoot' }, routable ? [
+				gameRouteBar(game, g, conns, names, (g.routes || {})[game.id] || ''),
+				directCheck(game)
+			] : [h('small', { 'class': 'note' }, game.id.indexOf('my') === 0 ? t('customGameHint') : t('notRoutable'))])
+		]))
 	]));
 }
 

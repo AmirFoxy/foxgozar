@@ -862,72 +862,112 @@ a.fgz-btn, label.fgz-btn { display: inline-block; color: var(--ink); text-decora
 }
 
 /* ------------------------------------------------------------ games
- * One card per game, three to a row: its picture (from the publisher's own
- * CDN, under a dark scrim so the name reads) with the best ping and a bin,
- * then its servers as rows, its own path and the direct check.
+ * One card per game, three to a row, all the same size. The picture (from
+ * the publisher's own CDN) fills the card; a gradient darkens it toward the
+ * bottom and the data sits on frosted glass, light on dark in either theme.
+ * Hover: the picture drifts closer and the edge glows in the ping's colour.
  */
 .fgz-gcards {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 16px;
-	align-items: start;
 }
 .fgz-gcard {
-	background: var(--surface);
-	border: 1px solid var(--line);
+	--glow: rgb(255 255 255 / 0.18);
+	position: relative;
+	height: 540px;
 	border-radius: var(--r-l);
 	overflow: hidden;
-	box-shadow: var(--shadow);
-	min-width: 0;
+	isolation: isolate;
+	color: #f2f3fa;
+	background: linear-gradient(150deg, #2b2f55, #10122a);
+	box-shadow: 0 12px 30px -14px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+	transition: box-shadow 0.35s, transform 0.35s;
 }
-.fgz-gcard .art {
-	position: relative;
-	aspect-ratio: 460 / 215;
-	display: flex;
-	align-items: flex-end;
-	background: linear-gradient(120deg, #2b2f55, #141630);
+.fgz-gcard[data-q="great"], .fgz-gcard[data-q="good"] { --glow: rgb(52 199 112 / 0.55); }
+.fgz-gcard[data-q="ok"] { --glow: rgb(255 157 65 / 0.55); }
+.fgz-gcard[data-q="high"], .fgz-gcard[data-q="fail"] { --glow: rgb(240 82 82 / 0.55); }
+.fgz-gcard:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.7), inset 0 0 0 1px var(--glow), 0 0 26px -6px var(--glow); }
+.fgz-gcard .bg {
+	position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2;
+	transform: scale(1.02); transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.8s;
 }
-.fgz-gcard .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.fgz-gcard .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(8 9 24 / 0.9), rgb(8 9 24 / 0.05) 60%); }
-.fgz-gcard .title { position: relative; z-index: 1; width: 100%; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 12px 14px; }
-.fgz-gcard h4 { margin: 0; color: #fff; font-size: 20px; font-weight: 800; line-height: 1.15; text-shadow: 0 2px 8px rgb(0 0 0 / 0.6); min-width: 0; overflow-wrap: anywhere; }
-.fgz-gcard .ping { flex: none; font-size: 14px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgb(0 0 0 / 0.55); color: #fff; }
-.fgz-gcard[data-q="great"] .ping, .fgz-gcard[data-q="good"] .ping { background: #1f8a4c; }
-.fgz-gcard[data-q="ok"] .ping { background: #b66a12; }
-.fgz-gcard[data-q="high"] .ping, .fgz-gcard[data-q="fail"] .ping { background: #b3261e; }
-.fgz-gcard .bin { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; background: rgb(0 0 0 / 0.5); color: #fff; }
+.fgz-gcard:hover .bg { transform: scale(1.09); filter: saturate(1.15); }
+.fgz-gcard .shade {
+	position: absolute; inset: 0; z-index: -1;
+	background:
+		linear-gradient(to bottom, rgb(6 7 20 / 0.55) 0%, rgb(6 7 20 / 0.05) 22%, rgb(6 7 20 / 0.35) 45%, rgb(6 7 20 / 0.92) 100%);
+}
+.fgz-gcard .content { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.fgz-gcard .top { display: flex; justify-content: space-between; align-items: center; }
+.fgz-gcard .ping {
+	font-size: 14px; font-weight: 800; padding: 4px 11px; border-radius: 999px; color: #fff;
+	background: rgb(0 0 0 / 0.5); backdrop-filter: blur(6px); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.fgz-gcard[data-q="great"] .ping, .fgz-gcard[data-q="good"] .ping { background: rgb(31 138 76 / 0.85); }
+.fgz-gcard[data-q="ok"] .ping { background: rgb(182 106 18 / 0.88); }
+.fgz-gcard[data-q="high"] .ping, .fgz-gcard[data-q="fail"] .ping { background: rgb(179 38 30 / 0.88); }
+.fgz-gcard .bin { background: rgb(0 0 0 / 0.45); color: #fff; backdrop-filter: blur(6px); }
 .fgz-gcard .bin:hover, .fgz-gcard .bin.armed { background: #b3261e; color: #fff; }
-.fgz-gcard[data-game="valorant"] .art { background: linear-gradient(120deg, #ff4655, #3a0d17 70%); }
-.fgz-gcard[data-game="wow"] .art { background: linear-gradient(120deg, #1d4b8f, #0b1530 60%, #6b4f12); }
-.fgz-gcard[data-game="fortnite"] .art { background: linear-gradient(120deg, #6c2bd9, #1b1d6b 60%, #0e8fd6); }
+.fgz-gcard h4 {
+	margin: auto 2px 0; font-size: 24px; font-weight: 800; line-height: 1.1; color: #fff;
+	text-shadow: 0 2px 12px rgb(0 0 0 / 0.75); overflow-wrap: anywhere;
+}
+.fgz-gcard .glass {
+	border-radius: var(--r-m);
+	background: rgb(12 14 34 / 0.5);
+	backdrop-filter: blur(14px) saturate(1.3);
+	-webkit-backdrop-filter: blur(14px) saturate(1.3);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
+	overflow: hidden;
+}
+.fgz-gcard .more { display: block; padding: 4px 12px 7px; color: rgb(255 255 255 / 0.55); font-size: 12px; }
+.fgz-gcard .gfoot { display: grid; gap: 8px; min-height: 84px; align-content: end; background: none; padding: 0; margin: 0; border: 0; }
+.fgz-gcard .gfoot .note { color: rgb(255 255 255 / 0.6); font-size: 12px; line-height: 1.5; }
+.fgz-gcard[data-game="valorant"] { background: linear-gradient(150deg, #ff4655, #3a0d17 70%); }
+.fgz-gcard[data-game="wow"] { background: linear-gradient(150deg, #1d4b8f, #0b1530 60%, #6b4f12); }
+.fgz-gcard[data-game="fortnite"] { background: linear-gradient(150deg, #6c2bd9, #1b1d6b 60%, #0e8fd6); }
 
-/* a server row: the city and the best path to it, the ping and its wobble */
+/* a server row on the glass: the city and the path to it, ping and wobble */
 .fgz-grow {
 	display: grid;
-	grid-template-columns: 9px minmax(0, 1fr) auto;
+	grid-template-columns: 8px minmax(0, 1fr) auto;
 	gap: 10px;
 	align-items: center;
-	padding: 9px 14px;
-	border-block-start: 1px solid var(--line);
+	padding: 7px 12px;
+	border-block-start: 1px solid rgb(255 255 255 / 0.07);
 }
-.fgz-grow .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
-.fgz-grow[data-q="great"] .dot, .fgz-grow[data-q="good"] .dot { background: var(--ok); }
-.fgz-grow[data-q="ok"] .dot { background: var(--fox); }
-.fgz-grow[data-q="high"] .dot, .fgz-grow[data-q="fail"] .dot { background: var(--bad); }
+.fgz-grow:first-child { border-block-start: 0; }
+.fgz-grow .dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(255 255 255 / 0.25); }
+.fgz-grow[data-q="great"] .dot, .fgz-grow[data-q="good"] .dot { background: #3bd27a; box-shadow: 0 0 8px #3bd27a; }
+.fgz-grow[data-q="ok"] .dot { background: #ff9d41; box-shadow: 0 0 8px #ff9d41; }
+.fgz-grow[data-q="high"] .dot, .fgz-grow[data-q="fail"] .dot { background: #f05252; box-shadow: 0 0 8px #f05252; }
 .fgz-grow .where { min-width: 0; }
-.fgz-grow .where b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-grow .where b { display: block; font-size: 13px; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fgz[dir="rtl"] .fgz-grow .where b, .fgz[dir="rtl"] .fgz-grow .where small { text-align: right; }
-.fgz-grow .where small { display: block; color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgz-grow .where small { display: block; color: rgb(255 255 255 / 0.55); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fgz-grow .nums { text-align: end; }
-.fgz-grow .ms { display: block; font-size: 15px; font-weight: 800; white-space: nowrap; }
-.fgz-grow[data-q="great"] .ms { color: var(--ok); }
-.fgz-grow .nums small { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.fgz-grow .ms { display: block; font-size: 14px; font-weight: 800; color: #fff; white-space: nowrap; }
+.fgz-grow[data-q="great"] .ms { color: #5be39a; }
+.fgz-grow .nums small { color: rgb(255 255 255 / 0.5); font-size: 11px; white-space: nowrap; }
 
-/* the direct check */
-.fgz-dcheckwrap { display: grid; gap: 8px; padding: 0 14px 14px; }
-.fgz-dcheck { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--r-s); background: var(--sunken); }
-.fgz-dcheck small { color: var(--ink-2); font-size: 13px; }
-.fgz-dcheck[data-advice="direct"] { background: var(--ok-soft); }
+/* the game's own path and the direct check, at the card's foot */
+.fgz-gcard .fgz-route { display: block; padding: 0; }
+.fgz-gcard .fgz-route label { display: none; }
+.fgz-gcard .fgz-route select {
+	min-height: 36px; padding: 6px 10px; font-size: 13px; color: #fff;
+	background: rgb(12 14 34 / 0.55); border: 1px solid rgb(255 255 255 / 0.14); backdrop-filter: blur(10px);
+}
+.fgz-gcard .fgz-route small { display: none; }
+.fgz-dcheckwrap { display: grid; gap: 6px; }
+.fgz-gcard .fgz-dcheckwrap > .fgz-btn {
+	min-height: 34px; padding: 6px 12px; font-size: 13px; color: #fff;
+	background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.16); backdrop-filter: blur(10px);
+}
+.fgz-gcard .fgz-dcheckwrap > .fgz-btn:hover { background: rgb(255 255 255 / 0.18); }
+.fgz-dcheck { display: grid; gap: 6px; padding: 8px 10px; border-radius: var(--r-s); background: rgb(12 14 34 / 0.6); backdrop-filter: blur(10px); }
+.fgz-dcheck small { color: rgb(255 255 255 / 0.8); font-size: 12px; }
+.fgz-dcheck[data-advice="direct"] { background: rgb(31 138 76 / 0.55); }
 
 /* live search to add games */
 .fgz-gsearch { padding: 0 18px 16px; position: relative; }
